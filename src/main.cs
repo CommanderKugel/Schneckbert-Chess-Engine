@@ -16,8 +16,11 @@ public class main
             const long timeControl = 100;
 
 
-            BotMatch matchUp_11v8 = new BotMatch(new Search_11(), new Search_8());
-            matchUp_11v8.match(timeControl, threadName: "11vs8");
+            BotMatch matchUp_12v11 = new BotMatch(new Search_12(), new Search_11());
+            matchUp_12v11.match(timeControl, threadName: "12vs11");
+
+            BotMatch matchUp_13v11 = new BotMatch(new Search_13(), new Search_11());
+            matchUp_13v11.match(timeControl, threadName: "13vs11");
 
 
         } 

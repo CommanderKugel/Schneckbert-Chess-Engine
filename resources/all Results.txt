@@ -28,6 +28,13 @@ sorting via Array.sort(moveScores, moves)
 (still buggy MVV-LVA)
 10v8: 164+ 622= 214-   
 
-fixed MVV-LVA
+fixed MVV-LVA bug
 one iteration selection sort inside of main make-move loop
-11v8: + = -
+11v8: 292+ 610= 98-
+
+history Heuristic (resets every time Think is called)
+12v11: 173+ 646= 181-
+
+PVS
+no save against TT overwrites
+13vs11: 181+ 624= 195-

@@ -10,25 +10,21 @@ using System.Diagnostics;
 // iterative deepening
 // return when time is up
 // return best move of incomplete iterations
-// Move ordering: TTmove, MVV-LVA, 2 Killers
+//
+// Move ordering in main & Q Search
+//  -> TTmove, MVV-LVA, Killer Moves
 //
 // NEW STUFF:
-// one iteration selection sort in main make-move loop
-// (in main Search and Q-Search)
-// dumb bugfix in mvv-lva
-// removed killer & tt moves from qSearch move-ordering
+// Move history tables
 // 
 //
-// WDL vs. Search8: 292+ 610= 98-
+// WDL vs. Search11: 181+ 624= 195-
 // time: 100
-// Search8 does not have Move ordering besides TT-Move!
-//
-// MACHT VIELE FEHLER
 //
 
-public class Search_11 : Search
+public class Search_13 : Search
 {
-    public override string ToString() { return "Search_11"; }
+    public override string ToString() { return "Search_13"; }
     
     int CHECKMATE = 30_000_000;
     Stopwatch watch = new Stopwatch();
@@ -39,11 +35,11 @@ public class Search_11 : Search
     Move globalBestMove;
     long timeControl;
 
-    bool timeIsUp;
 
     Transposition[] transpositionTable = new Transposition[0xFFFF];
     Move[] killerMoves1 = new Move[0xFF];
     Move[] killerMoves2 = new Move[0xFF];
+    int[,,] moveHistory;
 
     public override Move Think(Board board, long timeControl)
     {
@@ -53,8 +49,8 @@ public class Search_11 : Search
         this.board = board;
         this.timeControl = timeControl;
 
-        timeIsUp = false;
         startPly = board.plyCount;
+        moveHistory = new int[2, 64, 64];
         int score;
         
         globalBestScore = -CHECKMATE;
@@ -88,7 +84,7 @@ public class Search_11 : Search
             )) return entry.score;
 
 
-        // check for (stale-)mate before scoring
+        // check for (stale-) mate before scoring
         Move[] moves = board.generateLegalMoves();
         if (moves.Length == 0) return board.isInCheck ? board.plyCount - CHECKMATE : 0;
 
@@ -96,17 +92,21 @@ public class Search_11 : Search
         // initialize relevant variables
         // then loop over all moves to determine the moveScore & save that score
         int[] moveScores = new int[moves.Length];
+        int us = board.isWhiteToMove ? 1 : 0;
+
         Move ttMove = entry.move is not null ? entry.move : Move.nullMove;
         Move killerMove1 = killerMoves1[board.plyCount % 0xFF] is not null ? killerMoves1[board.plyCount % 0xFF] : Move.nullMove;
         Move killerMove2 = killerMoves2[board.plyCount % 0xFF] is not null ? killerMoves2[board.plyCount % 0xFF] : Move.nullMove;
+        Move move;
 
         for (int i=0; i<moveScores.Length; i++)
         {
+            move = moves[i];
             moveScores[i] = 
-                moves[i]==ttMove ? 1000 :
-                board.pieceLookup[moves[i].to]!=PieceType.None ? (100 + (int)board.pieceLookup[moves[i].to]*10-(int)board.pieceLookup[moves[i].from]) :
-                (moves[i]==killerMove1 || moves[i]==killerMove2) ? 90 :
-                0;
+                move==ttMove ? int.MaxValue :
+                board.pieceLookup[move.to]!=PieceType.None ? 2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from] :
+                (move==killerMove1 || move==killerMove2) ? 2_000_000_000 :
+                moveHistory[us, move.from, move.to]--;
         }
 
         // now the essential alpha-beta-make-unmake-move part of the search
@@ -114,6 +114,8 @@ public class Search_11 : Search
         int localBestScore = -CHECKMATE;
         int startAlpha = alpha;
         Move localBestMove = Move.nullMove;
+        bool doPV = true;
+
         for (int i=0; i<moves.Length; i++)
         {
             // Cutoff if time is up
@@ -137,14 +139,30 @@ public class Search_11 : Search
             // update next Move to make
             // "swapping" bestIndex and i
             // actually just move objects at "i" to "bestIndex" and never go back to i
-            Move move = moves[bestIndex];
+            move = moves[bestIndex];
             moves[bestIndex] = moves[i];
             moveScores[bestIndex] = moveScores[i];
 
 
-            // basic Negamax part
+            // PV-Search Part
+            // full window search until Alpha can be rised
+            // then continue with null window search
             board.makeMove(move);
-            score = -negaMax(-beta, -alpha, depth-1);
+            if (doPV)
+            {
+                score = -negaMax(-beta, -alpha, depth-1);
+            }
+            else // if (not doPV)
+            {
+                // use null window for cheaper cutoffs & prove that PV is best
+                // only bounds are needed, if bigger than alpha do full research for exact score
+                score = -negaMax(-alpha-1, -alpha, depth-1);
+
+                // if null window search can raise alpha without beta-cutoff
+                // -> research with full window for exact score
+                if (score > alpha && score < beta) 
+                    score = -negaMax(-beta, -alpha, depth-1);
+            }
             board.undoMove(move);
             
             // cutoffs
@@ -155,18 +173,24 @@ public class Search_11 : Search
 
                 if (score > alpha) 
                 {
+                    //turn on Null Window Search
+                    doPV = false;
+
                     // because beta > alpha
                     // cause cutoff before doing the work to increase alpha
                     if (score >= beta) 
                     {
-                        // update killer Moves in case of quiet Move
-                        // push first move to second and insert move to first array
+                        // if quiet move:
+                        // update killer Moves and move history
+                        // always replace older killer move (overwrite array2 with array1 and overwrite array1)
                         // does it make a difference if instead (capturedPiece == piecetype.None)?
                         if (move.flag == moveFlag.quietMove)
                         {
                             int hash = board.plyCount % 0xFF;
                             killerMoves2[hash] = killerMoves1[hash];
                             killerMoves1[hash] = move;
+
+                            moveHistory[us, move.from, move.to] += depth * depth;
                         }
                         break;
                     }
@@ -210,7 +234,6 @@ public class Search_11 : Search
         // initialize relevant variables
         // then loop over all moves to determine the moveScore & save that score
         int[] moveScores = new int[moves.Length];
-
         for (int i=0; i<moveScores.Length; i++)
         {   
             // only MVV-LVA

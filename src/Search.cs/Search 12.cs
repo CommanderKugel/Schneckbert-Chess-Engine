@@ -18,7 +18,7 @@ using System.Diagnostics;
 // Move history tables
 // 
 //
-// WDL vs. Search11: + = -
+// WDL vs. Search11: 173+ 646= 181-
 // time: 100
 //
 
@@ -93,18 +93,20 @@ public class Search_12 : Search
         // then loop over all moves to determine the moveScore & save that score
         int[] moveScores = new int[moves.Length];
         int us = board.isWhiteToMove ? 1 : 0;
+
         Move ttMove = entry.move is not null ? entry.move : Move.nullMove;
         Move killerMove1 = killerMoves1[board.plyCount % 0xFF] is not null ? killerMoves1[board.plyCount % 0xFF] : Move.nullMove;
         Move killerMove2 = killerMoves2[board.plyCount % 0xFF] is not null ? killerMoves2[board.plyCount % 0xFF] : Move.nullMove;
         Move move;
+
         for (int i=0; i<moveScores.Length; i++)
         {
             move = moves[i];
             moveScores[i] = 
-                move==ttMove ? 1000 :
-                board.pieceLookup[move.to]!=PieceType.None ? (100 + (int)board.pieceLookup[move.to]*10-(int)board.pieceLookup[move.from]) :
-                (move==killerMove1 || move==killerMove2) ? 90 :
-                moveHistory[us, move.to, move.from]--;
+                move==ttMove ? int.MaxValue :
+                board.pieceLookup[move.to]!=PieceType.None ? 2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from] :
+                (move==killerMove1 || move==killerMove2) ? 2_000_000_000 :
+                moveHistory[us, move.from, move.to];
         }
 
         // now the essential alpha-beta-make-unmake-move part of the search
@@ -157,14 +159,17 @@ public class Search_12 : Search
                     // cause cutoff before doing the work to increase alpha
                     if (score >= beta) 
                     {
-                        // update killer Moves in case of quiet Move
-                        // push first move to second and insert move to first array
+                        // if quiet move:
+                        // update killer Moves and move history
+                        // always replace older killer move (overwrite array2 with array1 and overwrite array1)
                         // does it make a difference if instead (capturedPiece == piecetype.None)?
                         if (move.flag == moveFlag.quietMove)
                         {
                             int hash = board.plyCount % 0xFF;
                             killerMoves2[hash] = killerMoves1[hash];
                             killerMoves1[hash] = move;
+
+                            moveHistory[us, move.from, move.to] += depth * depth;
                         }
                         break;
                     }
@@ -244,7 +249,7 @@ public class Search_12 : Search
             moveScores[bestIndex] = moveScores[i];
 
 
-            // classical alpha-beta part
+            // classical negaMax part
             board.makeMove(move);
             score = -qSearch(-beta, -alpha, depth-1);
             board.undoMove(move);
