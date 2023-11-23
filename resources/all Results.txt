@@ -2,7 +2,7 @@
 2v1: 394+ 584= 22-
 
 PESTO-eval
-3v2: 134+ 554= 312-     
+3v2: 134+ 554= 312- (elo: -57 +-13)
 
 Iterative Deepening (fixed depth)
 4v2: 171+ 658= 171-     
@@ -30,11 +30,18 @@ sorting via Array.sort(moveScores, moves)
 
 fixed MVV-LVA bug
 one iteration selection sort inside of main make-move loop
-11v8: 292+ 610= 98-
+11v8: 292+ 610= 98- (elo: +68 +-13)
 
 history Heuristic (resets every time Think is called)
-12v11: 173+ 646= 181-
+12v11: 177+ 643= 180- (elo: -1 +-13)
 
 PVS
 no save against TT overwrites
-13vs11: 181+ 624= 195-
+13vs11: 181+ 624= 195- (elo: +5 +-13)
+
+Check Extension
+16vs13: 193+ 601= 206- (elo: -5 +-13)
+lol HOW??
+
+short PVS
+17vs13: 190+ 622= 188-

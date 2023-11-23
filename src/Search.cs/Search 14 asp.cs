@@ -2,7 +2,7 @@
 using System.Diagnostics;
 
 //
-// negamaxframework with alpha beta pruning
+// negamax-framework with alpha beta pruning
 // Repitition, check- & stalemate detection
 // Basic Eval Function + basic mobility
 // basic q-search
@@ -12,19 +12,22 @@ using System.Diagnostics;
 // return best move of incomplete iterations
 //
 // Move ordering in main & Q Search
-//  -> TTmove, MVV-LVA, Killer Moves
+//  -> TTmove, MVV-LVA, Killer Moves, Move history tables
 //
 // NEW STUFF:
-// Move history tables
+// PVS (until alpha raises)
+// Aspiration Windows
 // 
 //
-// WDL vs. Search11: 173+ 646= 181-
+// (WDL vs. Search11: 181+ 624= 195-)
+// bug fix in Move History
+// WDL vs. Search11: 199+ 615= 186-
 // time: 100
 //
 
-public class Search_12 : Search
+public class Search_14 : Search
 {
-    public override string ToString() { return "Search_12"; }
+    public override string ToString() { return "Search_14"; }
     
     int CHECKMATE = 30_000_000;
     Stopwatch watch = new Stopwatch();
@@ -55,10 +58,22 @@ public class Search_12 : Search
         
         globalBestScore = -CHECKMATE;
         globalBestMove = Move.nullMove;
+        int alpha = -CHECKMATE;
+        int beta  =  CHECKMATE;
 
-        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl; depth++)
+        // iterative deepening loop
+        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl || globalBestMove==Move.nullMove; )
         {            
-            score = -negaMax(-CHECKMATE, CHECKMATE, depth);
+            negaMax(alpha, beta, depth);
+
+            // aspiration windows
+            if (globalBestScore >= beta) beta += 100;
+            else if (globalBestScore <= alpha) alpha -= 100;
+            else {
+                depth++;
+                alpha = globalBestScore + 35;
+                beta  = globalBestScore + 35;
+            }
         }
 
         watch.Stop();
@@ -104,7 +119,7 @@ public class Search_12 : Search
             move = moves[i];
             moveScores[i] = 
                 move==ttMove ? int.MaxValue :
-                board.pieceLookup[move.to]!=PieceType.None ? 2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from] :
+                board.pieceLookup[move.to]!=PieceType.None ? (2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from]) :
                 (move==killerMove1 || move==killerMove2) ? 2_000_000_000 :
                 moveHistory[us, move.from, move.to]--;
         }
@@ -114,6 +129,8 @@ public class Search_12 : Search
         int localBestScore = -CHECKMATE;
         int startAlpha = alpha;
         Move localBestMove = Move.nullMove;
+        bool doPV = true;
+
         for (int i=0; i<moves.Length; i++)
         {
             // Cutoff if time is up
@@ -142,9 +159,25 @@ public class Search_12 : Search
             moveScores[bestIndex] = moveScores[i];
 
 
-            // basic Negamax part
+            // PV-Search Part
+            // full window search until Alpha can be rised
+            // then continue with null window search
             board.makeMove(move);
-            score = -negaMax(-beta, -alpha, depth-1);
+            if (doPV)
+            {
+                score = -negaMax(-beta, -alpha, depth-1);
+            }
+            else // if (not doPV)
+            {
+                // use null window for cheaper cutoffs & prove that PV is best
+                // only bounds are needed, if bigger than alpha do full research for exact score
+                score = -negaMax(-alpha-1, -alpha, depth-1);
+
+                // if null window search can raise alpha without beta-cutoff
+                // -> research with full window for exact score
+                if (score > alpha && score < beta) 
+                    score = -negaMax(-beta, -alpha, depth-1);
+            }
             board.undoMove(move);
             
             // cutoffs
@@ -155,6 +188,9 @@ public class Search_12 : Search
 
                 if (score > alpha) 
                 {
+                    //turn on Null Window Search
+                    doPV = false;
+
                     // because beta > alpha
                     // cause cutoff before doing the work to increase alpha
                     if (score >= beta) 
@@ -249,7 +285,7 @@ public class Search_12 : Search
             moveScores[bestIndex] = moveScores[i];
 
 
-            // classical negaMax part
+            // classical alpha-beta part
             board.makeMove(move);
             score = -qSearch(-beta, -alpha, depth-1);
             board.undoMove(move);

@@ -13,20 +13,17 @@ public class main
 
         if (true)
         {
-            const long timeControl = 100;
+            const long timeControl = 50;
 
 
-            BotMatch matchUp_12v11 = new BotMatch(new Search_12(), new Search_11());
-            matchUp_12v11.match(timeControl, threadName: "12vs11");
-
-            BotMatch matchUp_13v11 = new BotMatch(new Search_13(), new Search_11());
-            matchUp_13v11.match(timeControl, threadName: "13vs11");
+            BotMatch matchUp = new BotMatch(new Search_18(), new Search_17());
+            matchUp.match(timeControl, threadName: "18vs17");
 
 
         } 
         else
         {
-            Search search = new Search_11();
+            Search search = new Search_14();
 
             string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - ";
             NotationHelper.initFen(board, fen);

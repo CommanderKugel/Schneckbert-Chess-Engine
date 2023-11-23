@@ -1,0 +1,4 @@
+
+no lmr when GIVING check
+no lmr when in PVS node -> implement PVS nodes and remove all extras
+

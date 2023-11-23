@@ -2,29 +2,26 @@
 using System.Diagnostics;
 
 //
-// negamaxframework with alpha beta pruning
+// (short) PV-negamax-iterative-deepening with alpha beta pruning
 // Repitition, check- & stalemate detection
+//
 // Basic Eval Function + basic mobility
 // basic q-search
 //
-// iterative deepening
-// return when time is up
-// return best move of incomplete iterations
-//
 // Move ordering in main & Q Search
-//  -> TTmove, MVV-LVA, Killer Moves
+//  -> TTmove, MVV-LVA, Killer Moves, Move history tables
 //
 // NEW STUFF:
-// Move history tables
+// basic LMR
 // 
 //
-// WDL vs. Search11: 173+ 646= 181-
-// time: 100
+// WDL vs. Search17: + = -
+// time: 50 ms per move
 //
 
-public class Search_12 : Search
+public class Search_18 : Search
 {
-    public override string ToString() { return "Search_12"; }
+    public override string ToString() { return "Search_18"; }
     
     int CHECKMATE = 30_000_000;
     Stopwatch watch = new Stopwatch();
@@ -72,7 +69,7 @@ public class Search_12 : Search
         bool isRoot = board.plyCount == startPly;
 
         if (board.repititionTable.isRepeatedPosition()) return -10;
-        if (depth == 0) return qSearch(alpha, beta, depth);
+        if (depth <= 0) return qSearch(alpha, beta, depth);
 
 
         Transposition entry = transpositionTable[board.currentGamestate.zobristKey % 0xFFFF];
@@ -104,7 +101,7 @@ public class Search_12 : Search
             move = moves[i];
             moveScores[i] = 
                 move==ttMove ? int.MaxValue :
-                board.pieceLookup[move.to]!=PieceType.None ? 2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from] :
+                board.pieceLookup[move.to]!=PieceType.None ? (2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from]) :
                 (move==killerMove1 || move==killerMove2) ? 2_000_000_000 :
                 moveHistory[us, move.from, move.to]--;
         }
@@ -114,6 +111,7 @@ public class Search_12 : Search
         int localBestScore = -CHECKMATE;
         int startAlpha = alpha;
         Move localBestMove = Move.nullMove;
+
         for (int i=0; i<moves.Length; i++)
         {
             // Cutoff if time is up
@@ -142,9 +140,31 @@ public class Search_12 : Search
             moveScores[bestIndex] = moveScores[i];
 
 
-            // basic Negamax part
+            // PV-Search Part
+            // full window search for first Move only
+            // then continue with null window search
             board.makeMove(move);
-            score = -negaMax(-beta, -alpha, depth-1);
+            if (i==0)
+            {
+                score = -negaMax(-beta, -alpha, depth-1);
+            }
+            // if not first Move: Zero Window Search
+            else 
+            {
+                // late-move-reductions
+                // first moves full depth, later quiet moves are reduced
+                // all MoveScores > 2b
+                int R = (!board.isInCheck && depth>3 && moveScores[i]<2_000_000_000 && i>3 && moveScores[i]<2_000_000_000)
+                         ? 1 : 0;
+
+                // Null windows for cheaper cutoffs & research if score out of window
+                score = -negaMax(-alpha-1, -alpha, depth-R-1);
+
+                // if null window search can raise alpha without beta-cutoff
+                // -> research with full window for exact score
+                if (score > alpha && score < beta) 
+                    score = -negaMax(-beta, -alpha, depth-1);
+            }
             board.undoMove(move);
             
             // cutoffs
@@ -187,7 +207,7 @@ public class Search_12 : Search
         }
 
         // update Transposition Table
-        // exact Score (flag = 1), beta cutoff (flag = 2), alpha fail soft (flag 3)
+        // exact Score (flag = 1), beta cutoff (flag = 2), (start-)alpha fail soft (flag 3)
         int ttFlag = localBestScore >= beta ? 2 : localBestScore > startAlpha ? 3 : 1;
         transpositionTable[board.currentGamestate.zobristKey % 0xFFFF] 
             = new Transposition(board.currentGamestate.zobristKey,
@@ -249,7 +269,7 @@ public class Search_12 : Search
             moveScores[bestIndex] = moveScores[i];
 
 
-            // classical negaMax part
+            // classical alpha-beta part
             board.makeMove(move);
             score = -qSearch(-beta, -alpha, depth-1);
             board.undoMove(move);

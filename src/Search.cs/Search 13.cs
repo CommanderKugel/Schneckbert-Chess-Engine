@@ -12,13 +12,19 @@ using System.Diagnostics;
 // return best move of incomplete iterations
 //
 // Move ordering in main & Q Search
-//  -> TTmove, MVV-LVA, Killer Moves
+//  -> TTmove, MVV-LVA, Killer Moves, Move history tables
 //
 // NEW STUFF:
-// Move history tables
+// PVS 
+// -> full window search until alpha raises
+// -> zero window search to prove rest is worse
+// -> research if zws fails
+// No overwrite protection for PVS
 // 
 //
-// WDL vs. Search11: 181+ 624= 195-
+// (WDL vs. Search11: 181+ 624= 195-)
+// major bug fix in Move History
+// WDL vs. Search11: 199+ 615= 186-
 // time: 100
 //
 
@@ -104,7 +110,7 @@ public class Search_13 : Search
             move = moves[i];
             moveScores[i] = 
                 move==ttMove ? int.MaxValue :
-                board.pieceLookup[move.to]!=PieceType.None ? 2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from] :
+                board.pieceLookup[move.to]!=PieceType.None ? (2_000_000_000 + 100*(int)board.pieceLookup[move.to]-(int)board.pieceLookup[move.from]) :
                 (move==killerMove1 || move==killerMove2) ? 2_000_000_000 :
                 moveHistory[us, move.from, move.to]--;
         }
@@ -190,7 +196,7 @@ public class Search_13 : Search
                             killerMoves2[hash] = killerMoves1[hash];
                             killerMoves1[hash] = move;
 
-                            moveHistory[us, move.from, move.to] += depth * depth;
+                            moveHistory[us, move.from, move.to] += depth * depth * 70;
                         }
                         break;
                     }
