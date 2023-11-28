@@ -1,0 +1,50 @@
++Q-Search
+2v1: 394+ 584= 22-
+
+PESTO-eval
+3v2: 134+ 554= 312- (elo: -57 +-13)
+
+Iterative Deepening (fixed depth)
+4v2: 171+ 658= 171-     
+
+no fixed depth, return result from last full iteration
+5v4: 418+ 546= 36-     
+
+return result from partial iteration (begin with global best Move)
+6v5: 121+ 392= 73-      
+
+TT-Move ordering (entry.move first)
+7v6: 221+ 629= 150-    
+
+TT-Cutoffs
+8v6: 218+ 638= 144-     
+
+MVV-LVA move ordering 
+(wrong implementation)
+sorting via Array.sort(moveScores, moves)
+9v8: 131+ 628= 241-     
+
+2 Killer Moves
+(still buggy MVV-LVA)
+10v8: 164+ 622= 214-   
+
+fixed MVV-LVA bug
+one iteration selection sort inside of main make-move loop
+11v8: 292+ 610= 98- (elo: +68 +-13)
+
+history Heuristic (resets every time Think is called)
+12v11: 177+ 643= 180- (elo: -1 +-13)
+
+PVS
+no save against TT overwrites
+13vs11: 181+ 624= 195- (elo: +5 +-13)
+
+Check Extension
+16vs13: 193+ 601= 206- (elo: -5 +-13)
+lol HOW??
+
+short PVS
+17vs13: 190+ 622= 188-
+
+LMR
+18vs17: 182+ 635= 183-

@@ -5,38 +5,29 @@ public class main
     public static Board board = new Board();
 
 
-    public static void Main()
+    public static void Main(string[] args)
     {
         Helper.init();
+        
+        const long timeControl = 1000;
+        BotMatch matchUp;
 
+        // call from python GUI
+        if (args.Length > 0) 
+        {
+            int num = Int32.Parse(args[0]);         
         
 
-        if (true)
-        {
-            const long timeControl = 50;
-
-
-            BotMatch matchUp = new BotMatch(new Search_18(), new Search_17());
-            matchUp.match(timeControl, threadName: "18vs17");
-
-
-        } 
-        else
-        {
-            Search search = new Search_14();
-
-            string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - ";
-            NotationHelper.initFen(board, fen);
-            Draw.drawBoard(board);
-
-            Move move = search.Think(board, 500);
-            Console.WriteLine("MOVE: "+move);
-            board.makeMove(move);
-            Draw.drawBoard(board);
+            matchUp = new BotMatch(new HumanPlayerPy(), new Search_17());
+            matchUp.humanVsBot(timeControl, num);
 
         }
-              
+        // if not called from python GUI
+        else 
+        {
+
+            Console.WriteLine("hello world");
+
+        }
     }
-
 }
-

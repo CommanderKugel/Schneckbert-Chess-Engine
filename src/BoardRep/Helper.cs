@@ -50,7 +50,7 @@ public static class Helper
         Magic.initMagic();
         PrecomputedData.initCheckMasks();
         Zobrist.initZobrist(1);
-        PSqT.initTables();
+        PestoTables.initTables();
     }
 
 

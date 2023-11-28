@@ -1,55 +1,68 @@
 
 
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 
 public class BotMatch
 {
-    // constants to change rooks
-    const ushort whiteKingside =   7 |  5 << 6;
-    const ushort blackKingside =  63 | 61 << 6;
-    const ushort whiteQueenside =  0 |  3 << 6;
-    const ushort blackQueenside =  7 | 59 << 6;
 
     public Search searcher1;
     public Search searcher2;
     public long timeControl;
-    public Board board;
+    public string name;
 
     public BotMatch(Search searcher1, Search searcher2)
     {
         this.searcher1 = searcher1;
         this.searcher2 = searcher2;
-        board = new Board();
+        name = searcher1.ToString()+" vs "+searcher2.ToString();
     }
 
     private const string fensPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\Fens.txt";
-    private const string folderPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\";
+    private const string folderPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\testResults\\";
+    private const string moveWritePath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\moveFromCS.txt";
+    private const string displayFenPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\displayFen.txt";
 
-    public void match(long timeControl, int rounds=500, string threadName="", bool doPrinting=false)
+    public void humanVsBot (long timeControl, int fenIndex)
+    {
+        string fen = File.ReadLines(fensPath).Skip(fenIndex).Take(1).First();
+        using (StreamWriter writer = new StreamWriter(displayFenPath)) 
+        {
+            writer.WriteLine( fen );
+        }
+        Console.WriteLine(fen);
+
+        int res = go(timeControl, false, fen, false);
+        Console.WriteLine(res==0 ? "Human won" : res == 1 ? "Draw" : "Computer Won");
+    }
+
+
+    public void match(long timeControl, int entryRound=0, int endRound=500, bool doPrinting=false)
     {   
-        if (rounds > 500) rounds = 500;
+        if (endRound > 500) endRound = 500;
+        if (entryRound > endRound) entryRound=endRound;
 
         int[] WDL = { 0, 0, 0 };
         
         int res;
-        for (int matchNum=0; matchNum<rounds; matchNum++)
+        for (int matchNum=entryRound; matchNum<endRound; matchNum++)
         {
             string fen = File.ReadLines(fensPath).Skip(matchNum).Take(1).First();
 
             res = go(timeControl, false, fen, doPrinting);
             WDL[res]++;
+            Console.WriteLine(name+", "+matchNum+": "+WDL[0]+"+ "+WDL[1]+"= "+WDL[2]+"-");
 
             res = go(timeControl, true, fen, doPrinting);
             WDL[res]++;
-
-            Console.WriteLine(threadName+", "+matchNum+": "+WDL[0]+"+ "+WDL[1]+"= "+WDL[2]+"-");
+            Console.WriteLine(name+", "+matchNum+": "+WDL[0]+"+ "+WDL[1]+"= "+WDL[2]+"-");
         }
         
-        using (StreamWriter writer = new StreamWriter(folderPath+threadName)) writer.WriteLine(
+        using (StreamWriter writer = new StreamWriter(folderPath+name)) writer.WriteLine(
             searcher1.ToString()+" vs "+searcher2.ToString()+": "+WDL[0]+"+ "+WDL[1]+"= "+WDL[2]+"-"
         );
-        Console.WriteLine("FINAL RESULT "+threadName+": "+searcher1+" "+WDL[0]+"+ "+WDL[1]+"= "+WDL[2]+"- "+searcher2);
+        Console.WriteLine("FINAL RESULT "+name+": "+searcher1+" "+WDL[0]+"+ "+WDL[1]+"= "+WDL[2]+"- "+searcher2);
     }
 
 
@@ -58,6 +71,7 @@ public class BotMatch
         Search white = flip ? searcher2 : searcher1;
         Search black = flip ? searcher1 : searcher2;
         
+        Board board = new Board();
         NotationHelper.initFen(board, fen);
 
         if (doPrinting) 
@@ -67,17 +81,13 @@ public class BotMatch
         }
 
         gameResult res = gameResult.ongoing;
+
         while (res == gameResult.ongoing)
         {
             bool player = board.isWhiteToMove;
             Search playerToMove = player ? white : black;
             Move move = Move.nullMove;
 
-            if (doPrinting)
-            {
-                Console.Clear();
-                Draw.drawBoard(board);
-            }
 
             try
             {
@@ -85,7 +95,12 @@ public class BotMatch
 
                 try
                 {
-                    board.makeMove(move);           
+                    board.makeMove(move);
+
+                    if (playerToMove is not HumanPlayerPy)
+                    {
+                        writeMove(move, moveWritePath);
+                    }
                 }
                 catch
                 {
@@ -93,7 +108,7 @@ public class BotMatch
                     Console.WriteLine("ply: "+board.plyCount+", fen: "+fen+", move: "+move);
                     res = player ? gameResult.blackWon : gameResult.whiteWon;
                 }
-
+                
                 res = checkResult(board); 
             }
             catch
@@ -102,12 +117,14 @@ public class BotMatch
                 Console.WriteLine("ply: "+board.plyCount+", fen: "+fen);
                 res = player ? gameResult.blackWon : gameResult.whiteWon;
             }
+
             if (doPrinting)
             {
+                Console.Clear();
                 Draw.drawBoard(board);
-                Console.WriteLine(move);
+                Console.WriteLine("last move: "+move);
             }
-          
+                      
         }
 
         //if (res == gameResult.draw) Console.WriteLine("Draw");

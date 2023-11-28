@@ -19,9 +19,7 @@ using System.Diagnostics;
 // Aspiration Windows
 // 
 //
-// (WDL vs. Search11: 181+ 624= 195-)
-// bug fix in Move History
-// WDL vs. Search11: 199+ 615= 186-
+// WDL vs. Search11: + = -
 // time: 100
 //
 

@@ -10,7 +10,6 @@ using System.Diagnostics;
 // return when time is up
 //
 // NEW STUFF:
-
 // always returning global best move (also for incomplete iterations)
 //
 // WDL vs. Search5: 121+ 392= 73-
@@ -46,14 +45,16 @@ public class Search_6 : Search
         
         globalBestScore = -CHECKMATE;
         globalBestMove = Move.nullMove;
-
-        for (int depth=1; depth<10; depth++)
+        
+        int depth=1;
+        for (; depth<10; depth++)
         {            
             score = -negaMax(-CHECKMATE, CHECKMATE, depth);
             if (watch.ElapsedMilliseconds > timeControl) break;
         }
 
         watch.Stop();
+        //Console.WriteLine("depth: "+depth);
 
         return globalBestMove;
     }

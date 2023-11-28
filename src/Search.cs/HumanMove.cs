@@ -4,7 +4,6 @@ public class HumanPlayer : Search
 
     public override Move Think(Board board, long timeControl)
     {
-        Console.Write("human color: "+(board.isWhiteToMove?"White ":"Black "));
         string move = Console.ReadLine();
         
         Move humanMove = Move.nullMove;
@@ -12,6 +11,5 @@ public class HumanPlayer : Search
         catch { Console.WriteLine("ERROR OCCURED"); }
         
         return humanMove;
-
     }
 }

@@ -180,28 +180,6 @@ public class Board
 
     }
 
-    public void makeNullMove ()
-    {
-        int us = isWhiteToMove ? 1 : 0;
-        int them = 1 - us;
-
-        int newEnPassant = 0;
-        int newCastlingRights = currentGamestate.castlingRights;
-        ulong newZobristKey = currentGamestate.zobristKey ^ Zobrist.sideToMove;
-        int newFiftyMoveCounter = currentGamestate.fiftyMoveCounter + 1;
-
-        isWhiteToMove = !isWhiteToMove;
-        plyCount++;
-        fullMoveCount += them;
-        isInCheck = false;
-
-        Gamestate newGamestate = new Gamestate(PieceType.None, newEnPassant, newCastlingRights, newZobristKey, newFiftyMoveCounter);
-        currentGamestate = newGamestate;
-        stateHistory.Push(newGamestate);
-        moveHistory.Push(Move.nullMove);
-        repititionTable.push(newZobristKey);
-    }
-
     private void makePromotion (int to, PieceType type, int color)
     {
         XORbitboards(to, PieceType.Pawn, color);
@@ -288,21 +266,6 @@ public class Board
     
     }
 
-    public void undoNullMove()
-    {
-        isWhiteToMove = !isWhiteToMove;
-        int us = isWhiteToMove ? 1 : 0;
-        int them = 1 - us;
-        plyCount--;
-        fullMoveCount -= them;
-
-        // already discard the current gamestate to get en passant square
-        stateHistory.Pop();
-        currentGamestate = stateHistory.Peek();
-
-        moveHistory.Pop();
-        repititionTable.pop();
-    }
 
     private void undoPromotion (int from, PieceType type, int color)
     {
@@ -323,6 +286,35 @@ public class Board
     {
         allBitboards[color][(int) type] ^= 1ul << to;
         allBitboards[color][         0] ^= 1ul << to;
+    }
+
+
+    public void makeNullMove ()
+    {
+        int newEnPassant = 0;
+        int newCastlingRights = currentGamestate.castlingRights;
+        ulong newZobristKey = currentGamestate.zobristKey ^ Zobrist.sideToMove;
+        int newFiftyMoveCounter = currentGamestate.fiftyMoveCounter + 1;
+        Gamestate newGamestate = new Gamestate(PieceType.None, newEnPassant, newCastlingRights, newZobristKey, newFiftyMoveCounter);
+        currentGamestate = newGamestate;
+        stateHistory.Push(newGamestate);
+
+        isWhiteToMove = !isWhiteToMove;
+        plyCount++;
+        isInCheck = false; 
+
+        moveHistory.Push(Move.nullMove);
+    }
+
+    public void undoNullMove()
+    {
+        isWhiteToMove = !isWhiteToMove;
+        plyCount--;
+
+        stateHistory.Pop();
+        currentGamestate = stateHistory.Peek();
+
+        moveHistory.Pop();
     }
 
 
