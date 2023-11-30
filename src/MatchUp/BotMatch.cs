@@ -19,7 +19,7 @@ public class BotMatch
         name = searcher1.ToString()+" vs "+searcher2.ToString();
     }
 
-    private const string fensPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\Fens.txt";
+    private const string fensPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\UHO_2022\\UHO_2022_+110_+119\\UHO_2022_6mvs_+110_+119.epd";
     private const string folderPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\testResults\\";
     private const string moveWritePath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\moveFromCS.txt";
     private const string displayFenPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\displayFen.txt";
@@ -40,7 +40,7 @@ public class BotMatch
 
     public void match(long timeControl, int entryRound=0, int endRound=500, bool doPrinting=false)
     {   
-        if (endRound > 500) endRound = 500;
+        if (endRound > 3317) endRound = 3317;
         if (entryRound > endRound) entryRound=endRound;
 
         int[] WDL = { 0, 0, 0 };
@@ -68,20 +68,20 @@ public class BotMatch
 
     public int go(long timeControl, bool flip, string fen, bool doPrinting=false)
     {
+        if (searcher2 is Search_17_vsHuman) searcher2 = Search_17_vsHuman.reset();
         Search white = flip ? searcher2 : searcher1;
         Search black = flip ? searcher1 : searcher2;
         
         Board board = new Board();
         NotationHelper.initFen(board, fen);
 
-        if (doPrinting) 
+        if (false && doPrinting) 
         {
             Console.Clear();
             Draw.drawBoard(board);
         }
 
         gameResult res = gameResult.ongoing;
-
         while (res == gameResult.ongoing)
         {
             bool player = board.isWhiteToMove;
@@ -118,19 +118,14 @@ public class BotMatch
                 res = player ? gameResult.blackWon : gameResult.whiteWon;
             }
 
-            if (doPrinting)
+            if (false && doPrinting)
             {
                 Console.Clear();
                 Draw.drawBoard(board);
                 Console.WriteLine("last move: "+move);
             }
                       
-        }
-
-        //if (res == gameResult.draw) Console.WriteLine("Draw");
-        //else if (res == gameResult.blackWon) Console.WriteLine(black+" won");
-        //else if (res == gameResult.whiteWon) Console.WriteLine(white+" won"); 
-            
+        }          
         
         int ret = 1;
         if (res != gameResult.draw)

@@ -115,7 +115,6 @@ public static class Perft
         catch
         {
             Draw.drawBoard(board);
-            board.printMovehistory();
         }
     }
 
@@ -129,7 +128,6 @@ public static class Perft
         catch
         {
             Draw.drawBoard(board);
-            board.printMovehistory();
         }
     }
 

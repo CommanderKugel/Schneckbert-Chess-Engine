@@ -36,94 +36,9 @@ public static class simpleEval
             }
         }
 
-        eval += Mobility.knightMovesCount(board);
-        eval += Mobility.diagonalMovesCount(board);
-        eval += Mobility.orthogonalMovesCount(board);
-
         return eval * (board.isWhiteToMove ? -1 : 1);
     }
 
-
-
-    public static int Eval_2(Board board)
-    {
-        int eval = 0;
-
-        bool noQueens = BitOperations.PopCount(board.allBitboards[0][5] | board.allBitboards[1][5]) == 0;
-
-        for (int color=0; color<2; color++, eval = -eval)
-        {
-            for (int piece=0; piece<6; piece++)
-            {
-                ulong bb = board.allBitboards[color][piece+1];
-                while (bb != 0)
-                {
-                    int index = color==1 ? Helper.popLSB(ref bb) : 63 - Helper.popLSB(ref bb);
-                    
-                    // piece Value
-                    eval += pieceValues[piece];
-                    
-                    // PSqT Value
-                    if (piece == 5) 
-                    {
-                        eval -= KingSafety.attackKingZone(1 - color, index, board);
-
-                        if (noQueens) eval += simpleTables.PSqT[6][index];  // King eg table
-                        else          eval += simpleTables.PSqT[5][index];  // king mg table
-                    }
-                    else eval += simpleTables.PSqT[piece][index];
-                    
-                }
-            }
-        }
-
-        eval += Mobility.knightMovesCount(board);
-        eval += Mobility.diagonalMovesCount(board);
-        eval += Mobility.orthogonalMovesCount(board);
-
-        return eval * (board.isWhiteToMove ? -1 : 1);
-    }
-
-    public static int Eval_3(Board board)
-    {
-        int eval = 0;
-
-        bool noQueens = BitOperations.PopCount(board.allBitboards[0][5] | board.allBitboards[1][5]) == 0;
-
-        for (int color=0; color<2; color++, eval = -eval)
-        {
-            for (int piece=0; piece<6; piece++)
-            {
-                ulong bb = board.allBitboards[color][piece+1];
-                while (bb != 0)
-                {
-                    int index = color==1 ? Helper.popLSB(ref bb) : 63 - Helper.popLSB(ref bb);
-                    
-                    // piece Value
-                    eval += pieceValues[piece];
-                    
-                    // PSqT Value
-                    if (piece == 5) 
-                    {
-                        eval -= KingSafety.attackKingZone(1 - color, index, board);
-
-                        if (noQueens) eval += simpleTables.PSqT[6][index];  // King eg table
-                        else          eval += simpleTables.PSqT[5][index];  // king mg table
-                    }
-                    else eval += simpleTables.PSqT[piece][index];
-                    
-                }
-            }
-        }
-
-        eval += Mobility.knightMovesCount(board);
-        eval += Mobility.diagonalMovesCount(board);
-        eval += Mobility.orthogonalMovesCount(board);
-
-        eval += KingSafety.pawnShield(board);
-
-        return eval * (board.isWhiteToMove ? -1 : 1);
-    }
 
 
     public static int kingEval (Board board)

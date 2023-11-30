@@ -219,7 +219,7 @@ public class Search_17_KS : Search
 
     private int qSearch(int alpha, int beta, int depth)
     {
-        int standPat = simpleEval.kingEval(board);
+        int standPat = PestoEval.kingEval(board);
         
         // check for (stale)mate before scoring moves
         Move[] moves = board.generateLegalMoves(true);

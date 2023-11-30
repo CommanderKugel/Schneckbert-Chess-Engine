@@ -2,7 +2,7 @@
 using System.Diagnostics;
 
 //
-// negamaxframework with alpha beta pruning
+// negamax-PVS-framework with alpha beta pruning
 // Repitition, check- & stalemate detection
 // Basic Eval Function + basic mobility
 // basic q-search
@@ -15,12 +15,10 @@ using System.Diagnostics;
 //  -> TTmove, MVV-LVA, Killer Moves, Move history tables
 //
 // NEW STUFF:
-// PVS (short)
+// Pesto Evaluation
 // 
 //
-// (WDL vs. Search11: 181+ 624= 195-)
-// major bug fix in Move History
-// WDL vs. Search13: 190+ 622= 188-
+// WDL vs. (Simple Eval & Mobility): 269+ 835= 266-
 // time: 100
 //
 

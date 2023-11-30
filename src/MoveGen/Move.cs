@@ -43,9 +43,14 @@ public class Move
 
     public override string ToString()
     {
-        //if (flag == moveFlag.kingsideCastle) return "O-O";
-        //if (flag == moveFlag.queensideCastle) return "O-O-O";
-        return NotationHelper.boardNotation[from] + NotationHelper.boardNotation[to]; // + ", " + flag;
+        return flag switch
+        {
+            moveFlag.queenPromotion or moveFlag.queenPromotionCapture => NotationHelper.boardNotation[from] + NotationHelper.boardNotation[to] + "q",
+            moveFlag.rookPromotion or moveFlag.rookPromotionCapture => NotationHelper.boardNotation[from] + NotationHelper.boardNotation[to] + "r",
+            moveFlag.bishopPromotion or moveFlag.bishopPromotionCapture => NotationHelper.boardNotation[from] + NotationHelper.boardNotation[to] + "b",
+            moveFlag.knightPromotion or moveFlag.knightPromotionCapture => NotationHelper.boardNotation[from] + NotationHelper.boardNotation[to] + "k",
+            _ => NotationHelper.boardNotation[from] + NotationHelper.boardNotation[to],
+        };
     }
 
     public Move (string str, moveFlag flag)
@@ -64,10 +69,10 @@ public class Move
         if (NotationHelper.boardNotation[from]=="e1" && NotationHelper.boardNotation[to]=="g1" && board.pieceLookup[from]==PieceType.King ||
             NotationHelper.boardNotation[from]=="e8" && NotationHelper.boardNotation[to]=="g8" && board.pieceLookup[from]==PieceType.King)
                 flag = moveFlag.kingsideCastle;
-        if (NotationHelper.boardNotation[from]=="e1" && NotationHelper.boardNotation[to]=="c1" && board.pieceLookup[from]==PieceType.King ||
+        else if (NotationHelper.boardNotation[from]=="e1" && NotationHelper.boardNotation[to]=="c1" && board.pieceLookup[from]==PieceType.King ||
             NotationHelper.boardNotation[from]=="e8" && NotationHelper.boardNotation[to]=="c8" && board.pieceLookup[from]==PieceType.King)
                 flag = moveFlag.queensideCastle;
-        if (board.pieceLookup[from]==PieceType.Pawn && (to<8 || to>55))
+        else if (board.pieceLookup[from]==PieceType.Pawn && (to<8 || to>55))
         {
             flag = board.pieceLookup[to]==PieceType.None ? moveFlag.queenPromotion : 
                                                            moveFlag.queenPromotionCapture;

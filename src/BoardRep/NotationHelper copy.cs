@@ -52,7 +52,6 @@ public class NotationHelper
         board.clearBoard();
         board.repititionTable.Clear();
         board.stateHistory.Clear();
-        board.moveHistory.Clear();
         
         string entry=fen[0].ToString();
 

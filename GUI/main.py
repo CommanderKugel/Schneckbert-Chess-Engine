@@ -73,14 +73,24 @@ def readFen():
     print(fen)
     return fen
 
-# ===== FCKN BUTTON =====
+
+# ===== BUTTON & EVAL BAR =====
 
 buttonRect = pygame.Rect((TILE_SIZE / 2, 4.5 * TILE_SIZE, 2 * TILE_SIZE, TILE_SIZE))
 pygame.draw.rect(screen, "darkgrey", buttonRect)
 
-def pressButton():
-    print("BUTTON PRESSED")
 
+def drawEvalBar(eval):
+    x = 8 * TILE_SIZE + OFFSET_X
+    y = OFFSET_Y
+
+    width = TILE_SIZE / 4
+    evalHeight = y + TILE_SIZE * 3 + eval / 250 * TILE_SIZE
+
+    pygame.draw.rect(screen, "white", (x, y, width, TILE_SIZE * 8))
+    pygame.draw.rect(screen, "black", (x, y, width, evalHeight))
+    pygame.draw.rect(screen, (30, 30, 30), (x, y + TILE_SIZE * 8, width, TILE_SIZE))
+    pygame.display.flip()
 
 
 # ===== MAKE MOVES =====
@@ -129,7 +139,7 @@ def drawClickedMoves(moves=list, squareArray=list):
         rank = 7 - int(dest / 8)
         file = dest % 8
         screen.blit(overlay, (file * TILE_SIZE + OFFSET_X, rank * TILE_SIZE + OFFSET_Y))
-
+    
     pygame.display.flip()
 
 writeMovePath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\moveFromPython.txt"
@@ -153,14 +163,20 @@ def makeMove(start, dest, fullMoveDict, board=Board):
 
 
 readMovePath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\moveFromCS.txt"
+exePath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\bin\\Debug\\net7.0\\Schneckbert 0.2.exe"
+evalPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\resources\\eval.txt";
+
+
 def play(fenIndex):
+    
     while True:
         with open(writeMovePath, "w") as txt:
             txt.write(str(0))
-        with open(writeMovePath, "w") as txt:
+        with open(readMovePath, "w") as txt:
+            txt.write(str(0))
+        with open(evalPath, "w") as txt:
             txt.write(str(0))
 
-        exePath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\Schneckbert 0.2\\bin\\Debug\\net7.0\\Schneckbert 0.2.exe"
         p = subprocess.Popen([exePath, str(fenIndex)])
         fenIndex += 1
 
@@ -170,12 +186,15 @@ def play(fenIndex):
         board = Board(fen)
         squareArray = getSquareArray(board)
         drawBoard(squareArray)
+        drawEvalBar(0)
 
         moveDict, fullMoveDict = getMoveDict(board)
         movesClicked = []
 
         moveStart = None
         lastMove = None
+
+        currentEval = 0
 
         doInnerLoop = True
         while doInnerLoop:
@@ -202,14 +221,13 @@ def play(fenIndex):
                         sys.exit()
 
                 """
-                handle making a human move
+                handle making a human move, always moves as white
                 """
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mouse = pygame.mouse.get_pos()
                     mouseIndex = getMouseIndex(mouse)
 
                     if buttonRect.collidepoint(mouse):
-                        pressButton()
                         p.kill()
                         doInnerLoop = False
 
@@ -226,7 +244,9 @@ def play(fenIndex):
                         movesClicked = getLegalMovesClicked(mouseIndex, moveDict)
                         moveStart = mouseIndex
                         drawClickedMoves(movesClicked, squareArray)
-
+            """
+            Make Bot Move, always moves as black
+            """
             if board.turn == BLACK:
                 with open(readMovePath, "r") as txt:
                     move = txt.read().replace('\n', '')
@@ -241,8 +261,21 @@ def play(fenIndex):
                             moveStart = None
                             moveDict, fullMoveDict = getMoveDict(board)
                         except:
-                            print("ERROR OCCURED!", board.fen)
+                            print("ERROR OCCURED! ITS IN PYTHON")
+                            print(move)
+
+            """
+            Draw eval bar
+            """
+            with open(evalPath, "r") as txt:
+                eval = txt.read()
+                if currentEval != eval:
+                    currentEval = eval
+                    try:
+                        drawEvalBar(int(eval))
+                    except:
+                        pass
 
             clock.tick(15)
 
-play(5)
+play(120)
