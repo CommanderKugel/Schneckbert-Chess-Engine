@@ -29,18 +29,18 @@ public class MoveGenLegal
 
     public static ulong orthogonalAttacks (int index, ulong blocker)
     {
-        blocker &= Magic.rookMasks[index];
-        blocker *= Magic.rookMagics[index];
-        blocker >>= rookShift;
-        return Magic.rookAttacks[index][blocker];
+        ulong key = blocker & Magic.rookMasks[index];
+        key *= Magic.rookMagics[index];
+        key >>= rookShift;
+        return Magic.rookAttacks[index][key];
     }
 
     public static ulong diagonalAttacks (int index, ulong blocker)
     {
-        blocker &= Magic.bishopMasks[index];
-        blocker *= Magic.bishopMagics[index];
-        blocker >>= bishopShift;
-        return Magic.bishopAttacks[index][blocker];
+        ulong key = blocker & Magic.bishopMasks[index];
+        key *= Magic.bishopMagics[index];
+        key >>= bishopShift;
+        return Magic.bishopAttacks[index][key];
     }
 
 
@@ -166,7 +166,7 @@ public class MoveGenLegal
         checkMask = 0;
         enemyAttackMask = 0;
 
-        blocker = bitboards[0][0] | bitboards[1][0];
+        blocker = bitboards[0][0] | bitboards[1][0] | bitboards[them][(int) PieceType.King];
         enemy = bitboards[them][0];
         empty = ~blocker;
         empytOrEnemy = empty | enemy;
@@ -257,8 +257,8 @@ public class MoveGenLegal
             enemyAttackMask |= knightAttacks(pieceIndex);
         }
         // Diagonal sliders
-        // blockers dont contain our king because xrays
-        // enemy King is a valid blocker tho
+        // blockers dont contain our king
+        // x-rays still invalidate some pseudo legal king moves
         blocker ^= 1ul << kingIndex;
         relevantPieces = bitboards[them][BISHOP] | bitboards[them][QUEEN];
         while (relevantPieces != 0)
@@ -295,6 +295,10 @@ public class MoveGenLegal
         }
 
         // =============================================================================
+
+        // generate other legal moves
+        // blocker now contain all pieces on the board
+        blocker ^= 1ul << kingIndex;
 
         if (pinnedPieces != 0)
         {
@@ -371,9 +375,6 @@ public class MoveGenLegal
                 mask &= checkMask & enemy;
                 extract(pieceIndex, mask, moveFlag.capture, ref moves);
             }
-
-            // blocker now contain our king again
-            blocker ^= 1ul << kingIndex;
 
             // diagonal sliders not pinned
             relevantPieces = (bitboards[us][BISHOP] | bitboards[us][QUEEN]) & notPinnedPieces;
@@ -657,9 +658,6 @@ public class MoveGenLegal
                 mask &= checkMask & enemy;
                 extract(pieceIndex, mask, moveFlag.capture, ref moves);
             }
-
-            // blocker now contain our king again
-            blocker ^= 1ul << kingIndex;
 
             // diagonal sliders
             relevantPieces = (bitboards[us][BISHOP] | bitboards[us][QUEEN]);

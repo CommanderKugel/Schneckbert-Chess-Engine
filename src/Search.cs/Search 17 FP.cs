@@ -2,30 +2,29 @@
 using System.Diagnostics;
 
 //
-// negamax-framework with alpha beta pruning
+// negamax-PVS-framework with alpha beta pruning
 // Repitition, check- & stalemate detection
 // Basic Eval Function + basic mobility
 // basic q-search
 //
 // iterative deepening
-// return when time is up
+// abort search when time is up
 // return best move of incomplete iterations
 //
-// Move ordering in main & Q Search
-//  -> TTmove, MVV-LVA, Killer Moves, Move history tables
+// Move ordering in main Search -> TTmove, MVV-LVA, Killer Moves, Move history tables
+// Move ordering in Q-Seach -> MVV-LVA
 //
 // NEW STUFF:
-// PVS (until alpha raises)
-// Aspiration Windows
 // 
-//
-// WDL vs. Search11: + = -
+// 
+// 
+// WDL vs. Search13: 190+ 622= 188-
 // time: 100
 //
 
-public class Search_14 : Search
+public class Search_17_FP : Search
 {
-    public override string ToString() { return "Search_14"; }
+    public override string ToString() { return "17_FP"; }
     
     int CHECKMATE = 30_000_000;
     Stopwatch watch = new Stopwatch();
@@ -56,22 +55,10 @@ public class Search_14 : Search
         
         globalBestScore = -CHECKMATE;
         globalBestMove = Move.nullMove;
-        int alpha = -CHECKMATE;
-        int beta  =  CHECKMATE;
 
-        // iterative deepening loop
-        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl || globalBestMove==Move.nullMove; )
+        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl; depth++)
         {            
-            negaMax(alpha, beta, depth);
-
-            // aspiration windows
-            if (globalBestScore >= beta) beta += 100;
-            else if (globalBestScore <= alpha) alpha -= 100;
-            else {
-                depth++;
-                alpha = globalBestScore + 35;
-                beta  = globalBestScore + 35;
-            }
+            score = -negaMax(-CHECKMATE, CHECKMATE, depth);
         }
 
         watch.Stop();
@@ -101,6 +88,11 @@ public class Search_14 : Search
         Move[] moves = board.generateLegalMoves();
         if (moves.Length == 0) return board.isInCheck ? board.plyCount - CHECKMATE : 0;
 
+        // initialize Futility Pruning
+        int plyFromRoot = board.plyCount - startPly;
+        int score = simpleEval.Eval(board);
+        bool canFPrune = plyFromRoot > 6 && score + plyFromRoot * 100 <= alpha;
+
         // Move Sorting:
         // initialize relevant variables
         // then loop over all moves to determine the moveScore & save that score
@@ -123,11 +115,9 @@ public class Search_14 : Search
         }
 
         // now the essential alpha-beta-make-unmake-move part of the search
-        int score;
         int localBestScore = -CHECKMATE;
         int startAlpha = alpha;
         Move localBestMove = Move.nullMove;
-        bool doPV = true;
 
         for (int i=0; i<moves.Length; i++)
         {
@@ -140,6 +130,7 @@ public class Search_14 : Search
             // one-iteration selection sort
             int bestScore = -1;
             int bestIndex = i;
+            
             // parsing all moveScores to find best score & index of best score
             for (int j=i; j<moves.Length; j++)
             {
@@ -161,12 +152,15 @@ public class Search_14 : Search
             // full window search until Alpha can be rised
             // then continue with null window search
             board.makeMove(move);
-            if (doPV)
+            if (i==0)
             {
                 score = -negaMax(-beta, -alpha, depth-1);
             }
-            else // if (not doPV)
+            else // if not first Move
             {
+                // futility pruning
+                if (canFPrune && (move.flag==moveFlag.quietMove || move.flag==moveFlag.doublePawnPush)) continue;
+
                 // use null window for cheaper cutoffs & prove that PV is best
                 // only bounds are needed, if bigger than alpha do full research for exact score
                 score = -negaMax(-alpha-1, -alpha, depth-1);
@@ -186,9 +180,6 @@ public class Search_14 : Search
 
                 if (score > alpha) 
                 {
-                    //turn on Null Window Search
-                    doPV = false;
-
                     // because beta > alpha
                     // cause cutoff before doing the work to increase alpha
                     if (score >= beta) 

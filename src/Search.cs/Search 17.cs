@@ -56,7 +56,7 @@ public class Search_17 : Search
         globalBestScore = -CHECKMATE;
         globalBestMove = Move.nullMove;
 
-        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl; depth++)
+        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl || globalBestMove==Move.nullMove; depth++)
         {            
             score = -negaMax(-CHECKMATE, CHECKMATE, depth);
         }

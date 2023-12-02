@@ -22,12 +22,12 @@ using System.Diagnostics;
 // time: 100
 //
 
-public class Search_17_vsHuman : Search
+public class Search_17_forHuman : Search
 {
-    public static Search reset() { return new Search_17_vsHuman(); }    
+    public static Search reset() { return new Search_17_forHuman(); }    
     
 
-    public override string ToString() { return "17"; }
+    public override string ToString() { return "17_forHum"; }
     
     int CHECKMATE = 30_000_000;
     Stopwatch watch = new Stopwatch();
@@ -61,13 +61,13 @@ public class Search_17_vsHuman : Search
         globalBestScore = -CHECKMATE;
         globalBestMove = Move.nullMove;
 
-        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl; depth++)
+        for (int depth=1; depth<10 && watch.ElapsedMilliseconds<timeControl || globalBestMove==Move.nullMove; depth++)
         {            
             score = -negaMax(-CHECKMATE, CHECKMATE, depth);
         }
 
         watch.Stop();
-
+        Console.WriteLine(globalBestMove);
         return globalBestMove;
     }
 

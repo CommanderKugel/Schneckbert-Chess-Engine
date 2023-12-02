@@ -48,3 +48,8 @@ short PVS
 
 LMR
 18vs17: 182+ 635= 183-
+
+
+// Pesto KS vs pure Pesto: 322+ 1349= 329-
+// Simlpe Eval + Mobility vs. Pesto: 269+ 835= 266-
+// Simple Eval - mobilitry vs. Pesto: 389+ 1240= 371-

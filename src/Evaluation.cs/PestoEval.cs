@@ -12,21 +12,21 @@ public static class PestoEval
 
         ulong bb;
         int pieceIndex;
-        int tableIndex;
+        int tablePieceIndex;
 
         for (int color=0; color<2; color++)
         {
             // convention: 0=none, 1=pawn, 2=knight, 3=bishop, 4=rook, 5=queen, 6=king
             for (int piece=1; piece<=6; piece++)
             {
-                tableIndex = piece-1;
+                tablePieceIndex = piece-1;
                 bb = board.allBitboards[color][piece];
                 while (bb != 0)
                 {
                     pieceIndex = color==1 ? Helper.popLSB(ref bb) : Helper.popLSB(ref bb) ^ 56;
-                    mg += PestoTables.mgTables[color][tableIndex][pieceIndex];
-                    eg += PestoTables.egTables[color][tableIndex][pieceIndex];
-                    gamephase += gamephaseInc[tableIndex];
+                    mg += PestoTables.mgTables[tablePieceIndex][pieceIndex];
+                    eg += PestoTables.egTables[tablePieceIndex][pieceIndex];
+                    gamephase += gamephaseInc[tablePieceIndex];
                 }
             }
             mg=-mg;
@@ -64,8 +64,8 @@ public static class PestoEval
                 while (bb != 0)
                 {
                     pieceIndex = color==1 ? Helper.popLSB(ref bb) : Helper.popLSB(ref bb) ^ 56;
-                    mg += PestoTables.mgTables[color][tableIndex][pieceIndex];
-                    eg += PestoTables.egTables[color][tableIndex][pieceIndex];
+                    mg += PestoTables.mgTables[tableIndex][pieceIndex];
+                    eg += PestoTables.egTables[tableIndex][pieceIndex];
                     gamephase += gamephaseInc[tableIndex];
 
                     switch (piece)
@@ -174,8 +174,8 @@ public static class PestoEval
                                 break;                                
                     }
                     
-                    mg += PestoTables.mgTables[color][tableIndex][pieceIndex];
-                    eg += PestoTables.egTables[color][tableIndex][pieceIndex];
+                    mg += PestoTables.mgTables[tableIndex][pieceIndex];
+                    eg += PestoTables.egTables[tableIndex][pieceIndex];
                     gamephase += gamephaseInc[tableIndex];
                 }
 
@@ -286,8 +286,8 @@ public static class PestoEval
                                 break;                                
                     }
                     
-                    mg += PestoTables.mgTables[color][tableIndex][pieceIndex];
-                    eg += PestoTables.egTables[color][tableIndex][pieceIndex];
+                    mg += PestoTables.mgTables[tableIndex][pieceIndex];
+                    eg += PestoTables.egTables[tableIndex][pieceIndex];
                     gamephase += gamephaseInc[tableIndex];
                 }
 

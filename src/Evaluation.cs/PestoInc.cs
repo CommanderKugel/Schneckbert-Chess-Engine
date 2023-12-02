@@ -34,8 +34,8 @@ public class PestoInc
                 while (bb != 0)
                 {
                     pieceIndex = color==1 ? Helper.popLSB(ref bb) : Helper.popLSB(ref bb) ^ 56;
-                    mg += PestoTables.mgTables[color][tableIndex][pieceIndex];
-                    eg += PestoTables.egTables[color][tableIndex][pieceIndex];
+                    mg += PestoTables.mgTables[tableIndex][pieceIndex];
+                    eg += PestoTables.egTables[tableIndex][pieceIndex];
                     gamephase += gamephaseInc[tableIndex];
                 }
             }
@@ -60,15 +60,15 @@ public class PestoInc
         int eg_psqtVal;
         int phaseWeight = oldEval.phaseWeight;
 
-        mg_psqtVal = PestoTables.mgTables[us][movingPiece-1][move.to];
-        mg_psqtVal -= PestoTables.mgTables[us][movingPiece-1][move.from];
-        eg_psqtVal = PestoTables.egTables[us][movingPiece-1][move.to];
-        eg_psqtVal -= PestoTables.egTables[us][movingPiece-1][move.from];
+        mg_psqtVal = PestoTables.mgTables[movingPiece-1][move.to];
+        mg_psqtVal -= PestoTables.mgTables[movingPiece-1][move.from];
+        eg_psqtVal = PestoTables.egTables[movingPiece-1][move.to];
+        eg_psqtVal -= PestoTables.egTables[movingPiece-1][move.from];
 
         if (capturedPiece != 0) 
         {
-            mg_psqtVal += PestoTables.mgTables[them][capturedPiece-1][move.to];
-            eg_psqtVal += PestoTables.egTables[them][capturedPiece-1][move.from];
+            mg_psqtVal += PestoTables.mgTables[capturedPiece-1][move.to];
+            eg_psqtVal += PestoTables.egTables[capturedPiece-1][move.from];
             phaseWeight -= gamephaseInc[capturedPiece];
         }
 

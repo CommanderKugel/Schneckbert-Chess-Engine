@@ -259,11 +259,7 @@ public class Board
     }
 
 
-    public void makeNullMove () { }
-    public void undoNullMove() { }
-    
-
-    public void makeMoveIncUpdate (Move move)
+    public void makeNullMove () 
     {
         int us = isWhiteToMove ? 1 : 0;
         int them = 1 - us;
@@ -272,114 +268,28 @@ public class Board
         fullMoveCount += them;
         isInCheck = false;
 
-        PieceType movingPiece   = pieceLookup[move.from];
-        PieceType capturedPiece = pieceLookup[move.to];
-
         int newEnPassant = 0;
         int newCastlingRights = currentGamestate.castlingRights;
-        ulong newZobristKey = currentGamestate.zobristKey;
+        ulong newZobristKey = currentGamestate.zobristKey ^ Zobrist.sideToMove;
+        int newFiftyMoveCounter = currentGamestate.fiftyMoveCounter+1;  
 
-        // update biboards of moved piece
-        XORbitboards(1ul << move.to | 1ul << move.from, movingPiece, us);
-        // update piece lookup
-        pieceLookup[move.from] = PieceType.None;
-        pieceLookup[move.to  ] = movingPiece;
-
-        // update castlin rights if King or Rook are moved
-        if ((newCastlingRights & (us==1 ? Gamestate.whiteBoth : Gamestate.blackBoth)) != 0)
-        {
-            if (movingPiece == PieceType.King) newCastlingRights &= us==1 ? 0xC : 0x3;
-            else if (movingPiece == PieceType.Rook)
-            {   
-                if      (move.from == (us==1 ? 0 : 56)) newCastlingRights &= Gamestate.castlingMasks[us][1]; // queen rook
-                else if (move.from == (us==1 ? 7 : 63)) newCastlingRights &= Gamestate.castlingMasks[us][0]; // king rook
-            }
-            if (capturedPiece == PieceType.Rook)
-            {
-                if      (move.to == (them==1 ? 0 : 56)) newCastlingRights &= Gamestate.castlingMasks[them][1]; // queen rook
-                else if (move.to == (them==1 ? 7 : 63)) newCastlingRights &= Gamestate.castlingMasks[them][0]; // king rook
-            }
-        }
-
-        switch (move.flag)
-        {
-            case moveFlag.capture:          XORbitboards(move.to, capturedPiece, them);
-                                            if (currentGamestate.hasCastlingRight(them) && capturedPiece == PieceType.Rook) 
-                                            {
-                                                if      (move.to == (them==1 ? 0 : 56)) newCastlingRights &= Gamestate.castlingMasks[them][1];
-                                                else if (move.to == (them==1 ? 7 : 63)) newCastlingRights &= Gamestate.castlingMasks[them][0];
-                                            }
-                                            break;
-            case moveFlag.doublePawnPush:   newEnPassant = move.to;
-                                            newZobristKey ^= Zobrist.enPassant[newEnPassant & 7];
-                                            break;
-            case moveFlag.kingsideCastle:   int start = us==1 ? 7 : 63;
-                                            int end   = us==1 ? 5 : 61;
-                                            XORbitboards(1ul << start | 1ul << end, PieceType.Rook, us);
-                                            pieceLookup[start] = PieceType.None;
-                                            pieceLookup[end  ] = PieceType.Rook;
-                                            newCastlingRights &= Gamestate.castlingMasks[us][0] & Gamestate.castlingMasks[us][1];
-                                            break;
-            case moveFlag.queensideCastle:  start = us==1 ? 0 : 56;
-                                            end   = us==1 ? 3 : 59;
-                                            XORbitboards(1ul << start | 1ul << end, PieceType.Rook, us);
-                                            pieceLookup[start] = PieceType.None;
-                                            pieceLookup[end  ] = PieceType.Rook;
-                                            newCastlingRights &= Gamestate.castlingMasks[us][0] & Gamestate.castlingMasks[us][1];
-                                            break;
-            case moveFlag.enPassantCapture: capturedPiece = PieceType.Pawn;
-                                            XORbitboards(currentGamestate.enPassant, PieceType.Pawn, them);
-                                            pieceLookup[currentGamestate.enPassant] = PieceType.None;
-                                            break;
-
-            case moveFlag.queenPromotion:   makePromotion(move.to, PieceType.Queen, us); break;
-            case moveFlag.rookPromotion:    makePromotion(move.to, PieceType.Rook, us); break;               
-            case moveFlag.bishopPromotion:  makePromotion(move.to, PieceType.Bishop, us); break;
-            case moveFlag.knightPromotion:  makePromotion(move.to, PieceType.Knight, us); break;
-                                            
-            case moveFlag.queenPromotionCapture:    makePromotion(move.to, PieceType.Queen, us);
-                                                    XORbitboards(move.to, capturedPiece, them); break;    
-            case moveFlag.rookPromotionCapture:     makePromotion(move.to, PieceType.Rook, us);
-                                                    XORbitboards(move.to, capturedPiece, them); break;           
-            case moveFlag.bishopPromotionCapture:   makePromotion(move.to, PieceType.Bishop, us);
-                                                    XORbitboards(move.to, capturedPiece, them); break;
-            case moveFlag.knightPromotionCapture:   makePromotion(move.to, PieceType.Knight, us);
-                                                    XORbitboards(move.to, capturedPiece, them); break;                               
-        }
-        // update Zobrist key
-        newZobristKey ^= Zobrist.sideToMove;
-        newZobristKey ^= Zobrist.pieceArray[us][(int) movingPiece - 1][move.to];
-        newZobristKey ^= Zobrist.pieceArray[us][(int) movingPiece - 1][move.from];
-        if (capturedPiece != PieceType.None) newZobristKey ^= Zobrist.pieceArray[them][(int) capturedPiece - 1][move.to];
-        if (currentGamestate.castlingRights != newCastlingRights) 
-        {
-            newZobristKey ^= Zobrist.castlingRights[currentGamestate.castlingRights];
-            newZobristKey ^= Zobrist.castlingRights[newCastlingRights];
-        }
         repititionTable.push(newZobristKey);
-
-        int newFiftyMoveCounter = 0;
-        if (capturedPiece == PieceType.None && movingPiece != PieceType.Pawn)
-            newFiftyMoveCounter = currentGamestate.fiftyMoveCounter + 1;    
-
-        Gamestate newGamestate = new Gamestate(capturedPiece, newEnPassant, newCastlingRights, newZobristKey, newFiftyMoveCounter);
+        Gamestate newGamestate = new Gamestate(PieceType.None, newEnPassant, newCastlingRights, newZobristKey, newFiftyMoveCounter);
         currentGamestate = newGamestate;
         stateHistory.Push(newGamestate);
-
-
     }
-
-
-
-
-
-
     
-    
-        
-    
+    public void undoNullMove() 
+    { 
+        isWhiteToMove = !isWhiteToMove;
+        plyCount--;
+        fullMoveCount -=isWhiteToMove ? 0 : 1;
 
-    
+        stateHistory.Pop();
+        currentGamestate = stateHistory.Peek();
+
+        repititionTable.pop();
+    }   
     
         
     public Move[] generateMovesPseudo (bool onlyCaptures=false) { return genPseudo.moveGen(this, onlyCaptures); }

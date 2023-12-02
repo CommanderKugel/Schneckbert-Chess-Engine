@@ -70,7 +70,6 @@ displayFenPath = "C:\\Users\\nikol\\Desktop\\VS Code Dateien\\Schneckbert 0.2\\S
 def readFen():
     with open(displayFenPath, "r") as txt:
         fen = txt.read().replace('\n', '')
-    print(fen)
     return fen
 
 
@@ -263,6 +262,7 @@ def play(fenIndex):
                         except:
                             print("ERROR OCCURED! ITS IN PYTHON")
                             print(move)
+
 
             """
             Draw eval bar

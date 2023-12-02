@@ -142,7 +142,7 @@ public static class PestoTables
         mg_king_table
     };
 
-    private static int[][] eg_pesto_table = {
+    private static readonly int[][] eg_pesto_table = {
         eg_pawn_table,
         eg_knight_table,
         eg_bishop_table,
@@ -154,32 +154,25 @@ public static class PestoTables
     private static readonly int[] mg_value = { 82, 337, 365, 477, 1025,  20_000};
     private static readonly int[] eg_value = { 94, 281, 297, 512,  936,  20_000};
 
-    public static int[][][] mgTables = new int[2][][];
-    public static int[][][] egTables = new int[2][][];
-
     private static bool isInitialized = false;
+
+    public static int[][] mgTables = new int[6][];
+    public static int[][] egTables = new int[6][];
+
     public static void initTables ()
     {
         if (!isInitialized)
         {
-            mgTables[0] = new int[6][];
-            mgTables[1] = new int[6][];
-            egTables[0] = new int[6][];
-            egTables[1] = new int[6][];
 
             for (int piece = 0; piece < 6; piece++)   
             {
-                mgTables[0][piece] = new int[64];
-                mgTables[1][piece] = new int[64];
-                egTables[0][piece] = new int[64];
-                egTables[1][piece] = new int[64];
+                mgTables[piece] = new int[64];
+                egTables[piece] = new int[64];
 
                 for (int sq=0; sq<64; sq++)
                 {
-                    mgTables[0][piece][sq] = mg_value[piece] + mg_pesto_table[piece][sq];
-                    mgTables[1][piece][sq] = mg_value[piece] + mg_pesto_table[piece][sq];
-                    egTables[0][piece][sq] = eg_value[piece] + eg_pesto_table[piece][sq];
-                    egTables[1][piece][sq] = eg_value[piece] + eg_pesto_table[piece][sq];
+                    mgTables[piece][sq] = mg_value[piece] + mg_pesto_table[piece][sq];
+                    egTables[piece][sq] = eg_value[piece] + eg_pesto_table[piece][sq];
                 }
             }
 

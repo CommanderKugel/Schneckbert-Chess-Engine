@@ -68,7 +68,7 @@ public class BotMatch
 
     public int go(long timeControl, bool flip, string fen, bool doPrinting=false)
     {
-        if (searcher2 is Search_17_vsHuman) searcher2 = Search_17_vsHuman.reset();
+        if (searcher2 is Search_17_forHuman) searcher2 = Search_17_forHuman.reset();
         Search white = flip ? searcher2 : searcher1;
         Search black = flip ? searcher1 : searcher2;
         
