@@ -1,5 +1,5 @@
 
-public class SliderHelper
+public static class SliderHelper
 {
 
     public static ulong rookAttacksLoop (int index, ulong blockers)

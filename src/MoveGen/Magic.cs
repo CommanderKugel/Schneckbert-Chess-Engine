@@ -1,7 +1,7 @@
 
 using System.Numerics;
 
-public class Magic
+public static class Magic
 {
     
     public static ulong[][] rookAttacks   = new ulong[64][];

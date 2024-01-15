@@ -1,323 +1,344 @@
 
-
-using System.Net;
+using System.Numerics;
 
 public class Board
 {
+    const byte PAWN = 1;
+    const byte KNIGHT = 2;
+    const byte BISHOP = 3;
+    const byte ROOK = 4;
+    const byte QUEEN = 5;
+    const byte KING = 6;
+
+
+
     // universal stuff
     public bool isWhiteToMove;
+    public bool isInCheck;
     public int plyCount;
-    public int fullMoveCount;
-    public MoveGenPseudo genPseudo;
-    public MoveGenLegal genLegal;
 
     // Data moves dont store
-    public Stack<Move> moveHistory = new Stack<Move>();
-    public Stack<Gamestate> stateHistory = new Stack<Gamestate>();
+    public Stack<Gamestate> stateStack = new Stack<Gamestate>();
     public Gamestate currentGamestate;
-    public RepititionTable repititionTable;
+    public RepititionTable repTable = new RepititionTable();
+
+    public Stack<Move> moveStack = new Stack<Move>();
 
     // actual piece representation
     public ulong[][] allBitboards = new ulong[2][];
-    public PieceType[] pieceLookup = new PieceType[64];
+    public byte[] pieceLookup = new byte[64];
+
+    
+
+    public ulong zobristKey => currentGamestate.zobristKey;
+    public bool isRepeatedPosition => repTable.isRepeatedPosition();
+    public bool isFiftyMoveDraw => currentGamestate.fiftyMoveCounter == 100;
+    public bool onlyKings => BitOperations.PopCount(allBitboards[0][0] | allBitboards[1][0]) == 2;
 
 
     public Board ()
     {
         isWhiteToMove = true;
+        isInCheck = false;
         plyCount = 0;
-        fullMoveCount = 0;
-        genPseudo = new MoveGenPseudo();
-        genLegal = new MoveGenLegal();
 
         // bitboards & piece lookup
         allBitboards[0] = new ulong[7];
         allBitboards[1] = new ulong[7];
         clearBoard();
-        moveHistory.Clear();
-        stateHistory.Clear();
+        stateStack.Clear();
 
-        repititionTable = new RepititionTable();
-        currentGamestate = new Gamestate(PieceType.None, 0, 0, 0, 0);
-        stateHistory.Push(currentGamestate);
+        currentGamestate = new Gamestate(0, 8, 0, 0, 0);
+        stateStack.Push(currentGamestate);
     }
-    
+
+    private static readonly int[] rookCastleSquares = { 63, 61, 7, 5 , 59, 56, 0, 3 };
+
+
+    public bool hasCastlingRights(int us) => currentGamestate.hasCastlingRights(us);
 
 
     public void makeMove (Move move)
     {
         int us = isWhiteToMove ? 1 : 0;
-        int them = 1 - us;
+        int them = 1-us;
+        int from = move.from;
+        int to = move.to;
 
-        PieceType movingPiece = pieceLookup[move.from];
-        PieceType capturedPiece = pieceLookup[move.to];
-
-        int newEnPassant = 0;
+        // newState vars
+        int newEPFile = 8;
         int newCastlingRights = currentGamestate.castlingRights;
+        ulong newZobrist = currentGamestate.zobristKey;
 
-        // update biboards of moved piece
-        XORbitboards(1ul << move.to | 1ul << move.from, movingPiece, us);
-        // update piece lookup
-        pieceLookup[move.from] = PieceType.None;
-        pieceLookup[move.to  ] = movingPiece;
+        byte movingPiece = pieceLookup[from];
+        byte capturedPiece = pieceLookup[to];
 
-        // update castlin rights if King or Rook are moved
-        if ((newCastlingRights & (us==1 ? Gamestate.whiteBoth : Gamestate.blackBoth)) != 0)
+        // make quiet move
+        ulong bb = 1ul << from | 1ul << to;
+        allBitboards[us][movingPiece] ^= bb;
+        allBitboards[us][0] ^= bb;
+
+        pieceLookup[from] = 0;
+        pieceLookup[to] = movingPiece;
+
+        newZobrist ^= Zobrist.pieceArray[us][movingPiece][from] ^ Zobrist.pieceArray[us][movingPiece][to];
+
+
+        if (move.isCapture)
         {
-            if (movingPiece == PieceType.King) newCastlingRights &= us==1 ? 0xC : 0x3;
-            
-            else if (movingPiece == PieceType.Rook)
-            {   
-                // queen rook
-                if      (move.from == (us==1 ? 0 : 56)) newCastlingRights &= Gamestate.castlingMasks[us][1];
-                // king rook
-                else if (move.from == (us==1 ? 7 : 63)) newCastlingRights &= Gamestate.castlingMasks[us][0];
-            }
+            bb = 1ul << to;
+            allBitboards[them][capturedPiece] ^= bb;
+            allBitboards[them][0] ^= bb;
 
-            if (capturedPiece == PieceType.Rook)
+            newZobrist ^= Zobrist.pieceArray[them][capturedPiece][to];
+
+            if (hasCastlingRights(them) && capturedPiece == ROOK)
             {
-                // queen rook
-                if      (move.to == (them==1 ? 0 : 56)) newCastlingRights &= Gamestate.castlingMasks[them][1];
-                // king rook
-                else if (move.to == (them==1 ? 7 : 63)) newCastlingRights &= Gamestate.castlingMasks[them][0];
+                if (to == (!isWhiteToMove ? 7 : 63))
+                    newCastlingRights &= ~(0b0100 >> (them+them));
+
+                if (to == (!isWhiteToMove ? 0 : 56))
+                    newCastlingRights &= ~(0b1000 >> (them+them));
             }
         }
 
+        if (hasCastlingRights(us))
+        {
+            if (movingPiece == KING)
+                newCastlingRights &= ~(0b1100 >> (us+us));
+
+            if (movingPiece == ROOK)
+            {
+                if (from == (isWhiteToMove ? 7 : 63))
+                    newCastlingRights &= ~(0b0100 >> (us+us));
+
+                if (from == (isWhiteToMove ? 0 : 56))
+                    newCastlingRights &= ~(0b1000 >> (us+us));
+            }
+        }
 
         switch (move.flag)
         {
-            case moveFlag.quietMove:        break;
- 
-            case moveFlag.capture:          XORbitboards(move.to, capturedPiece, them);
-                                            if (currentGamestate.hasCastlingRight(them) && capturedPiece == PieceType.Rook)
-                                            {
-                                                // queen rook
-                                                if      (move.to == (them==1 ? 0 : 56)) newCastlingRights &= Gamestate.castlingMasks[them][1];
-                                                // king rook
-                                                else if (move.to == (them==1 ? 7 : 63)) newCastlingRights &= Gamestate.castlingMasks[them][0];
-                                            }
-                                            break;
+            case moveFlag.quietMove:
+            case moveFlag.capture:
+                break;
+            case moveFlag.doublePawnPush:
+                newEPFile = to & 7;
+                newZobrist ^= Zobrist.enPassant[newEPFile];
+                break;
+            case moveFlag.enPassantCapture:
+                capturedPiece = PAWN;
 
-            case moveFlag.doublePawnPush:   newEnPassant = move.to;
-                                            break;
+                int epPawn = currentGamestate.enPassantFile + (4 - them) * 8;
+                bb = 1ul << epPawn;
+                allBitboards[them][PAWN] ^= bb;
+                allBitboards[them][0] ^= bb;
+                pieceLookup[epPawn] = 0;
+                break;
 
-            case moveFlag.kingsideCastle:   int start = us==1 ? 7 : 63;
-                                            int end   = us==1 ? 5 : 61;
-                                            XORbitboards(1ul << start | 1ul << end, PieceType.Rook, us);
-                                            pieceLookup[start] = PieceType.None;
-                                            pieceLookup[end  ] = PieceType.Rook;
-                                            newCastlingRights &= Gamestate.castlingMasks[us][0] & Gamestate.castlingMasks[us][1];
-                                            break;
-            
-            case moveFlag.queensideCastle:  start = us==1 ? 0 : 56;
-                                            end   = us==1 ? 3 : 59;
-                                            XORbitboards(1ul << start | 1ul << end, PieceType.Rook, us);
-                                            pieceLookup[start] = PieceType.None;
-                                            pieceLookup[end  ] = PieceType.Rook;
-                                            newCastlingRights &= Gamestate.castlingMasks[us][0] & Gamestate.castlingMasks[us][1];
-                                            break;
+            case moveFlag.kingsideCastle:
+                int start = isWhiteToMove ? 7 : 63;
+                int end = isWhiteToMove ? 5 : 61;
+                pieceLookup[start] = 0;
+                pieceLookup[end] = ROOK;
 
-            case moveFlag.enPassantCapture: capturedPiece = PieceType.Pawn;
-                                            XORbitboards(currentGamestate.enPassant, PieceType.Pawn, them);
-                                            pieceLookup[currentGamestate.enPassant] = PieceType.None;
-                                            break;
+                bb = 1ul << start | 1ul << end;
+                allBitboards[us][ROOK] ^= bb;
+                allBitboards[us][0] ^= bb;
+                break;
 
-            case moveFlag.queenPromotion:   makePromotion(move.to, PieceType.Queen, us);
-                                            break;
-            case moveFlag.rookPromotion:    makePromotion(move.to, PieceType.Rook, us);
-                                            break;            
-            case moveFlag.bishopPromotion:  makePromotion(move.to, PieceType.Bishop, us);
-                                            break;
-            case moveFlag.knightPromotion:  makePromotion(move.to, PieceType.Knight, us);
-                                            break;
+            case moveFlag.queensideCastle:
+                start = isWhiteToMove ? 0 : 56;
+                end = isWhiteToMove ? 3 : 59;
+                pieceLookup[start] = 0;
+                pieceLookup[end] = ROOK;
 
-            case moveFlag.queenPromotionCapture:    makePromotion(move.to, PieceType.Queen, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;
-            case moveFlag.rookPromotionCapture:     makePromotion(move.to, PieceType.Rook, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;            
-            case moveFlag.bishopPromotionCapture:   makePromotion(move.to, PieceType.Bishop, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;
-            case moveFlag.knightPromotionCapture:   makePromotion(move.to, PieceType.Knight, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;
+                bb = 1ul << start | 1ul << end;
+                allBitboards[us][ROOK] ^= bb;
+                allBitboards[us][0] ^= bb;
+                break;
+
+            case moveFlag.queenPromotion:
+            case moveFlag.queenPromotionCapture:
+                bb = 1ul << to;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][QUEEN] ^= bb;
+                pieceLookup[to] = QUEEN;
+                break;
+            case moveFlag.rookPromotion:
+            case moveFlag.rookPromotionCapture:
+                bb = 1ul << to;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][ROOK] ^= bb;
+                pieceLookup[to] = ROOK;
+                break;
+            case moveFlag.bishopPromotion:
+            case moveFlag.bishopPromotionCapture:
+                bb = 1ul << to;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][BISHOP] ^= bb;
+                pieceLookup[to] = BISHOP;
+                break;    
+            case moveFlag.knightPromotion:
+            case moveFlag.knightPromotionCapture:
+                bb = 1ul << to;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][KNIGHT] ^= bb;
+                pieceLookup[to] = KNIGHT;
+                break;
         }
 
+        if (currentGamestate.enPassantFile < 8)
+            newZobrist ^= Zobrist.enPassant[currentGamestate.enPassantFile];
+        if (newCastlingRights != currentGamestate.castlingRights)
+            newZobrist ^= Zobrist.castlingRights[currentGamestate.castlingRights] ^ Zobrist.castlingRights[newCastlingRights];
+        newZobrist ^= Zobrist.sideToMove;
+
+        
         isWhiteToMove = !isWhiteToMove;
         plyCount++;
-        fullMoveCount += them;
 
-        
-        ulong newZobristKey = currentGamestate.zobristKey;
-        newZobristKey ^= Zobrist.sideToMove;
-        if (newEnPassant != 0) newZobristKey ^= Zobrist.enPassant[newEnPassant & 7];
-        newZobristKey ^= Zobrist.pieceArray[us][(int) movingPiece - 1][move.to  ];
-        newZobristKey ^= Zobrist.pieceArray[us][(int) movingPiece - 1][move.from];
-        if (capturedPiece != PieceType.None) newZobristKey ^= Zobrist.pieceArray[them][(int) capturedPiece - 1][move.to];
-        newZobristKey ^= Zobrist.castlingRights[currentGamestate.castlingRights];
-        newZobristKey ^= Zobrist.castlingRights[newCastlingRights];
+        byte newFiftyMoveCounter = (byte) ((movingPiece == 1 || move.isCapture) ? 0 :
+                                           1 + currentGamestate.fiftyMoveCounter);
+        Gamestate newState = new Gamestate(capturedPiece, (byte) newEPFile, (byte) newCastlingRights, newZobrist, newFiftyMoveCounter);
+        currentGamestate = newState;
+        stateStack.Push(newState);
+        repTable.push(newZobrist);
 
-
-        int newFiftyMoveCounter;
-        if (capturedPiece == PieceType.None && movingPiece != PieceType.Pawn)
-        {
-            newFiftyMoveCounter = currentGamestate.fiftyMoveCounter + 1;
-            repititionTable.push(newZobristKey);
-        }
-        else 
-        {
-            newFiftyMoveCounter = 0;
-            repititionTable.resetIndex(newZobristKey);
-        }
-
-        Gamestate newGamestate = new Gamestate(capturedPiece, newEnPassant, newCastlingRights, newZobristKey, newFiftyMoveCounter);
-        currentGamestate = newGamestate;
-        stateHistory.Push(newGamestate);
-
-        moveHistory.Push(move);
-
+        moveStack.Push(move);
     }
 
-    private void makePromotion (int to, PieceType type, int color)
-    {
-        XORbitboards(to, PieceType.Pawn, color);
-        XORbitboards(to, type, color);
-        pieceLookup[to] = type;
-    }
-
+  
     public void undoMove (Move move)
     {
-        isWhiteToMove = !isWhiteToMove;
-        int us = isWhiteToMove ? 1 : 0;
-        int them = 1 - us;
-        plyCount--;
-        fullMoveCount -= them;
- 
-
-        PieceType movingPiece = pieceLookup[move.to];
-        PieceType capturedPiece = currentGamestate.capturedPiece;
+        int us = isWhiteToMove ? 0 : 1;
+        int them = 1-us;
 
 
-        // already discard the current gamestate to get en passant square
-        stateHistory.Pop();
-        currentGamestate = stateHistory.Peek();
+        int from = move.from;
+        int to = move.to;
 
-        moveHistory.Pop();
+        byte movingPiece = pieceLookup[to];
+        byte capturedPiece = currentGamestate.capturedPiece;
+        
+        // undo quiet move
+        ulong bb = 1ul << from | 1ul << to;
+        allBitboards[us][movingPiece] ^= bb;
+        allBitboards[us][0] ^= bb;
 
+        pieceLookup[from] = movingPiece;
+        pieceLookup[to] = capturedPiece;
 
-        // undo moving piece updates
-        XORbitboards(1ul << move.to | 1ul << move.from, movingPiece, us);
-        // undo piece lookup
-        pieceLookup[move.from] = movingPiece;
-        pieceLookup[move.to  ] = capturedPiece;
+        if (move.isCapture)
+        {
+            bb = 1ul << to;
+            allBitboards[them][capturedPiece] ^= bb;
+            allBitboards[them][0] ^= bb;
+        }
 
         switch (move.flag)
         {
-            case moveFlag.quietMove:        break;
- 
-            case moveFlag.capture:          XORbitboards(move.to, capturedPiece, them);
-                                            break;
+            case moveFlag.quietMove:
+            case moveFlag.capture:
+            case moveFlag.doublePawnPush:
+                break;
+            case moveFlag.enPassantCapture:
+                int epPawn = (to & 7) + (isWhiteToMove ? 24 : 32);
+                bb = 1ul << epPawn | 1ul << to;
+                allBitboards[them][PAWN] ^= bb;
+                allBitboards[them][0] ^= bb;
 
-            case moveFlag.doublePawnPush:   break;
+                pieceLookup[to] = 0;
+                pieceLookup[epPawn] = PAWN;
+                break;
 
-            case moveFlag.kingsideCastle:   int start = us==1 ? 7 : 63;
-                                            int end   = us==1 ? 5 : 61;
-                                            XORbitboards(1ul << start | 1ul << end, PieceType.Rook, us);
-                                            pieceLookup[start] = PieceType.Rook;
-                                            pieceLookup[end  ] = PieceType.None;
-                                            break;
-            
-            case moveFlag.queensideCastle:  start = us==1 ? 0 : 56;
-                                            end   = us==1 ? 3 : 59;
-                                            XORbitboards(1ul << start | 1ul << end, PieceType.Rook, us);
-                                            pieceLookup[start] = PieceType.Rook;
-                                            pieceLookup[end  ] = PieceType.None;
-                                            break;
+            case moveFlag.kingsideCastle:
+                int start = !isWhiteToMove ? 7 : 63;
+                int end = !isWhiteToMove ? 5 : 61;
+                pieceLookup[start] = ROOK;
+                pieceLookup[end] = 0;
 
-            case moveFlag.enPassantCapture: XORbitboards(currentGamestate.enPassant, capturedPiece, them);
-                                            pieceLookup[move.to] = PieceType.None;
-                                            pieceLookup[currentGamestate.enPassant] = capturedPiece;
-                                            break;
+                bb = 1ul << start | 1ul << end;
+                allBitboards[us][ROOK] ^= bb;
+                allBitboards[us][0] ^= bb;
+                break;
 
-            case moveFlag.queenPromotion:   undoPromotion(move.from, PieceType.Queen, us);
-                                            break;
-            case moveFlag.rookPromotion:    undoPromotion(move.from, PieceType.Rook, us);
-                                            break;
-            case moveFlag.bishopPromotion:  undoPromotion(move.from, PieceType.Bishop, us);
-                                            break;
-            case moveFlag.knightPromotion:  undoPromotion(move.from, PieceType.Knight, us);
-                                            break;                                        
+            case moveFlag.queensideCastle:
+                start = !isWhiteToMove ? 0 : 56;
+                end = !isWhiteToMove ? 3 : 59;
+                pieceLookup[start] = ROOK;
+                pieceLookup[end] = 0;
 
-            case moveFlag.queenPromotionCapture:    undoPromotion(move.from, PieceType.Queen, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;
-            case moveFlag.rookPromotionCapture:     undoPromotion(move.from, PieceType.Rook, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;
-            case moveFlag.bishopPromotionCapture:   undoPromotion(move.from, PieceType.Bishop, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;
-            case moveFlag.knightPromotionCapture:   undoPromotion(move.from, PieceType.Knight, us);
-                                                    XORbitboards(move.to, capturedPiece, them);
-                                                    break;                                                          
+                bb = 1ul << start | 1ul << end;
+                allBitboards[us][ROOK] ^= bb;
+                allBitboards[us][0] ^= bb;
+                break;
+
+            case moveFlag.queenPromotion:
+            case moveFlag.queenPromotionCapture:
+                bb = 1ul << from;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][QUEEN] ^= bb;
+                pieceLookup[from] = PAWN;
+                break;
+            case moveFlag.rookPromotion:
+            case moveFlag.rookPromotionCapture:
+                bb = 1ul << from;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][ROOK] ^= bb;
+                pieceLookup[from] = PAWN;
+                break;
+            case moveFlag.bishopPromotion:
+            case moveFlag.bishopPromotionCapture:
+                bb = 1ul << from;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][BISHOP] ^= bb;
+                pieceLookup[from] = PAWN;
+                break;
+            case moveFlag.knightPromotion:
+            case moveFlag.knightPromotionCapture:
+                bb = 1ul << from;
+                allBitboards[us][PAWN] ^= bb;
+                allBitboards[us][KNIGHT] ^= bb;
+                pieceLookup[from] = PAWN;
+                break;
         }
+
+
+        isWhiteToMove = !isWhiteToMove;
+        plyCount--;
+
+        repTable.pop();
+        stateStack.Pop();
+        currentGamestate = stateStack.Peek();
+
+        moveStack.Pop();
+    }
+
+
+
+
+    public void makeMove (string move)
+    {
+        Move newMove = new Move(move, this);
+        makeMove(newMove);
+    }
+
+    public void undoMove (string move)
+    {
+        Move newMove = new Move(move, this);
+        undoMove(newMove);
+    }
     
+    
+    public int generateLegalMoves (ref Span<Move> moves)
+    {
+        return MoveGenLegal.moveGen(ref moves, this);
     }
 
-    private void undoPromotion (int from, PieceType type, int color)
+    public int generateCaptures (ref Span<Move> moves)
     {
-        // moving piece (aka promoted type) already on from square
-        XORbitboards(from, type, color);
-        XORbitboards(from, PieceType.Pawn, color);
-        pieceLookup[from] = PieceType.Pawn;
-    }
-
-
-    private void XORbitboards (ulong mask, PieceType type, int color)
-    {
-        allBitboards[color][(int) type] ^= mask;
-        allBitboards[color][         0] ^= mask;        
-    }
-
-    private void XORbitboards (int to, PieceType type, int color)
-    {
-        allBitboards[color][(int) type] ^= 1ul << to;
-        allBitboards[color][         0] ^= 1ul << to;
-    }
-
-
-
-    public Move[] generateMovesPseudo (bool onlyCaptures=false)
-    {
-        return genPseudo.moveGen(this, onlyCaptures);
-    }
-
-    public Move[] generateLegalMoves (bool onlyCaptures=false)
-    {
-        return genLegal.moveGen(this, onlyCaptures);
-    }
-
-
-
-    public void printMoves (bool onlyCaptures = false)
-    {
-        Move[] moves = genPseudo.moveGen(this, onlyCaptures);
-        Console.WriteLine("moves: "+moves.Length);
-        for (int i=0; i<moves.Length; i++)
-        {
-            Console.WriteLine(i+": "+moves[i]);
-        }
-        
-    }
-
-    public void printMovehistory()
-    {
-        int len = moveHistory.Count;
-        Move[] newHistory = new Move[len];
-        for (int i=len-1; i>=0; i--) newHistory[i] = moveHistory.Pop();
-        foreach (Move move in newHistory) Console.WriteLine(move);
+        return CaptureGenLegal.captureGen(ref moves, this);
     }
 
     public void clearBoard ()
@@ -326,13 +347,34 @@ public class Board
         {
             for (int j=0; j<allBitboards[i].Length; j++) allBitboards[i][j]=0;
         }
-        for (int i=0; i<64; i++) pieceLookup[i]=PieceType.None;
+        for (int i=0; i<64; i++) pieceLookup[i] = 0;
     }
 
-    public void setPiece (int square, int color, PieceType piece)
+    public void setPiece (int square, int color, byte piece)
     {
-        allBitboards[color][(int) piece] |= 1ul << square;
-        allBitboards[color][          0] |= 1ul << square;
+        allBitboards[color][piece] |= 1ul << square;
+        allBitboards[color][0] |= 1ul << square;
         pieceLookup[square] = piece;
+    }
+
+    public void initFen (string fen=Perft.startingPos)
+    {
+        NotationHelper.initFen(this, fen);
+    }
+    
+    public void printMoveHist()
+    {
+        foreach (Move move in moveStack)
+            Console.WriteLine(move);
+    }
+
+    public void printLegalMoves()
+    {
+        Span<Move> moves = stackalloc Move[218];
+        int moveCount = MoveGenLegal.moveGen(ref moves, this);
+        Console.WriteLine($"moveCount: {moveCount}");
+
+        for (int i=0; i<moveCount; i++)
+            Console.WriteLine(moves[i]);
     }
 }

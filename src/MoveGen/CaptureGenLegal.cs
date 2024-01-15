@@ -1,7 +1,7 @@
 
 using System.Numerics;
 
-public static class MoveGenLegal
+public static class CaptureGenLegal
 {
 
     const byte PAWN   = 1;
@@ -29,7 +29,7 @@ public static class MoveGenLegal
 
     private static ulong[] pinMaskArray = new ulong[64];
 
-    public static int moveGen (ref Span<Move> moves, Board board)
+    public static int captureGen (ref Span<Move> moves, Board board)
     {
         int us = board.isWhiteToMove ? 1 : 0;
         int them = 1-us;
@@ -50,7 +50,7 @@ public static class MoveGenLegal
         int kingIndex = BitOperations.TrailingZeroCount(allBitboards[us][KING]);
         if (allBitboards[us][KING] == 0 || allBitboards[them][KING] == 0)
         {
-            Console.WriteLine($"ERROR found in MoveGeneration! King is Missing");
+            Console.WriteLine($"ERROR found in MoveGeneration! A King is Missing");
             Draw.drawBoard(board);
             board.printMoveHist();
             throw null;
@@ -60,14 +60,16 @@ public static class MoveGenLegal
         initEnemyAttackMask();
         initCheckAndPin();
 
+        if (board.isInCheck)
+            return MoveGenLegal.moveGen(ref moves, board);
+
         generateKingMoves(ref moves);
         generateKnightMoves(ref moves);
         generateDiagMoves(ref moves);
         generateOrthoMoves(ref moves);
-        generatePawnPushes(ref moves);
+        generatePawnPushPromotions(ref moves);
         generatePawnCaptures(ref moves);
         generateEPCaptures(ref moves);
-        generateCastles(ref moves);
 
         return moveCount;
 
@@ -76,33 +78,6 @@ public static class MoveGenLegal
         /*
         / LOCAL METHODS
         */
-
-        void generateCastles(ref Span<Move> moves)
-        {
-            if (!board.hasCastlingRights(us) || board.isInCheck)
-                return;
-
-            ulong kingBlocker = board.isWhiteToMove ? 0x60 : 0x6000_0000_0000_0000ul;
-            ulong queenChecks = board.isWhiteToMove ? 0x0C : 0x0C00_0000_0000_0000ul;
-            ulong queenBlocker = board.isWhiteToMove ? 0x0E : 0x0E00_0000_0000_0000ul;
-
-            if (board.currentGamestate.hasKingsideRights(us) &&
-                (kingBlocker & (blocker | enemyAttackMask)) == 0)
-            {
-                int start = board.isWhiteToMove ? 4 : 60;
-                int end = board.isWhiteToMove ? 6 : 62;
-                moves[moveCount++] = new Move(start, end, moveFlag.kingsideCastle);
-            }
-
-            if (board.currentGamestate.hasQueensideRights(us) &&
-                (queenBlocker & blocker) == 0 && (queenChecks & enemyAttackMask) == 0)
-            {
-                int start = board.isWhiteToMove ? 4 : 60;
-                int end = board.isWhiteToMove ? 2 : 58;
-                moves[moveCount++] = new Move(start, end, moveFlag.queensideCastle);
-            }
-
-        }
 
         void generateEPCaptures(ref Span<Move> moves)
         {
@@ -221,68 +196,26 @@ public static class MoveGenLegal
         }
 
 
-        void generatePawnPushes(ref Span<Move> moves)
+        void generatePawnPushPromotions(ref Span<Move> moves)
         {
             ulong pawns = allBitboards[us][PAWN];
             int dir;
-            ulong singlePushes;
-            ulong doublePushes;
-            ulong pinnedSingles;
-            ulong pinnedDoubles;
             ulong promos;
             ulong pinnedPromos;
 
             if (board.isWhiteToMove)
             {
                 dir = -8;
-                singlePushes = ((pawns & ~pinnedPieces & ~seventhRank) << 8) & empty;
-                doublePushes = ((singlePushes & thirdRank) << 8) & empty & checkMask;
-                pinnedSingles = ((pawns & pinnedPieces & ~seventhRank) << 8) & empty;
-                pinnedDoubles = (pinnedSingles & thirdRank) << 8 & empty & checkMask;
                 promos = ((pawns & seventhRank & ~pinnedPieces) << 8) & empty & checkMask;
                 pinnedPromos = ((pawns & seventhRank & pinnedPieces) << 8) & empty & checkMask;
-                // delay check masking, cuz double pushes can block checks
-                singlePushes &= checkMask;
-                pinnedSingles &= checkMask;
             }
             else
             {
                 dir = 8;
-                singlePushes = ((pawns & ~pinnedPieces & ~secondRank) >> 8) & empty;
-                doublePushes = ((singlePushes & sixthRank) >> 8) & empty & checkMask;
-                pinnedSingles = ((pawns & pinnedPieces & ~secondRank) >> 8) & empty;
-                pinnedDoubles = (pinnedSingles & sixthRank) >> 8 & empty & checkMask;
                 promos = ((pawns & secondRank & ~pinnedPieces) >> 8) & empty & checkMask;
                 pinnedPromos = ((pawns & secondRank & pinnedPieces) >> 8) & empty & checkMask;
-                // delay check masking, cuz double pushes can block checks
-                singlePushes &= checkMask;
-                pinnedSingles &= checkMask;
             }
 
-            while (singlePushes != 0)
-            {
-                int to = Helper.popLSB(ref singlePushes);
-                moves[moveCount++] = new Move(to+dir, to, moveFlag.quietMove);
-            }
-            while (doublePushes != 0)
-            {
-                int to = Helper.popLSB(ref doublePushes);
-                moves[moveCount++] = new Move(to+dir+dir, to, moveFlag.doublePawnPush);
-            }
-            while (pinnedSingles != 0)
-            {
-                int to = Helper.popLSB(ref pinnedSingles);
-                int from = to + dir;
-                if (((1ul << to) & pinMaskArray[from]) != 0)
-                    moves[moveCount++] = new Move(from, to, moveFlag.quietMove);
-            }
-            while (pinnedDoubles != 0)
-            {
-                int to = Helper.popLSB(ref pinnedDoubles);
-                int from = to + dir + dir;
-                if (((1ul << to) & pinMaskArray[from]) != 0)
-                    moves[moveCount++] = new Move(from, to, moveFlag.doublePawnPush);
-            }
             while (promos != 0)
             {
                 int to = Helper.popLSB(ref promos);
@@ -383,12 +316,6 @@ public static class MoveGenLegal
             {
                 int to = Helper.popLSB(ref captures);
                 moves[moveCount++] = new Move(from, to, moveFlag.capture);
-            }
-            ulong quiets = mask & empty;
-            while (quiets != 0)
-            {
-                int to = Helper.popLSB(ref quiets);
-                moves[moveCount++] = new Move(from, to, moveFlag.quietMove);
             }
         }
 

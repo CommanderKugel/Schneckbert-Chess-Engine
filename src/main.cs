@@ -1,30 +1,27 @@
 
-using System.Collections;
-using System.Text.RegularExpressions;
+using System.Diagnostics;
+
 
 public class main
 {
-    public static Helper.init init = new Helper.init();
     public static Board board = new Board();
-    public static Search search = new Search();
+    public static Stopwatch watch = new Stopwatch();
 
-
-    const long timeControl = 1000;
 
 
     public static void Main()
     {
+        Helper.init(); 
         
-        NotationHelper.initFen(board, "8/8/8/8/8/5K2/1Q6/7k w - - 0 1");
-        Draw.drawBoard(board);
+        Botmatch match = new Botmatch(new Q_Search(), new TT_Move());
+        match.go(timeControl: 1_000, increment: 10);
 
-        board.makeMove(new Move("b2f2", moveFlag.quietMove));
 
-        //board.makeMove(search.Think(board, timeControl));
-        Draw.drawBoard(board);
-        Console.WriteLine(board.generateLegalMoves().Length);
-        Draw.drawMask(board.allBitboards[1][5]);
+        match = new Botmatch(new Q_Search(), new TT_cutoff());
+        match.go(timeControl: 1_000, increment: 10);
 
+
+        match = new Botmatch(new TT_Move(), new TT_cutoff());
+        match.go(timeControl: 1_000, increment: 10);
     }
 }
-

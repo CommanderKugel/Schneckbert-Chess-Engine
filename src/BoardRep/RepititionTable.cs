@@ -1,10 +1,8 @@
 
-
 public class RepititionTable
 {
+    const int length = 0xFF;
 
-    const int length = 256;
-    const int hashMod = length - 1;
 
     public ulong[] table;
     public int index;
@@ -14,35 +12,47 @@ public class RepititionTable
         table = new ulong[length];
         index = 0;
     }
+
+    public void Clear()
+    {
+        table = new ulong[length];
+        index = 0;
+    }
     
     public void push(ulong zobristKey)
     {
-        table[index & hashMod] = zobristKey;
-        index++;
+        table[++index & 0x7F] = zobristKey;
+    }
+
+    public ulong pop()
+    {
+        ulong ret = table[index & 0x7F];
+        index--;
+        return ret;
+    }
+
+    public void Reset()
+    {
+        index = 0;
     }
 
     public bool isRepeatedPosition()
     {
-        int counter = 0;
-        try
+        ulong currentZobrist = table[index & 0x7F];
+        for (int i=(index-1) & 0x7F; i>=0; i--)
         {
-            int i = index-2;
-            while (i>=0)
-            {
-                if (table[i & hashMod] == table[index & hashMod]) counter++;
-                i-=2;
-            }
+            if (table[i] == currentZobrist) 
+                return true;
         }
-        catch {
-            Console.WriteLine(index);
-        }
-        return counter==2;
+        return false;
     }
 
-    public void resetIndex(ulong zobristKey)
+    public void printTable()
     {
-        index = 0;
-        table[index++] = zobristKey;
+        foreach (ulong elem in table)
+        {
+            if (elem != 0) Console.Write(elem.ToString("X")+", ");
+        }
+        Console.WriteLine("");
     }
-
 }

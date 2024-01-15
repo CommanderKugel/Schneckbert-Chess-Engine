@@ -14,8 +14,8 @@ public static class Zobrist
     public static ulong sideToMove;
     public static ulong[] castlingRights = new ulong[16];
 
-    public static ulong[][] whitePieces  = new ulong[6][];
-    public static ulong[][] blackPieces  = new ulong[6][];
+    public static ulong[][] whitePieces  = new ulong[7][];
+    public static ulong[][] blackPieces  = new ulong[7][];
     public static ulong[][][] pieceArray = new ulong[2][][];
 
     public static ulong[] enPassant = new ulong[8];
@@ -28,7 +28,7 @@ public static class Zobrist
 
         pieceArray[1] = whitePieces;
         pieceArray[0] = blackPieces;
-        for (int piece=0; piece<6; piece++) 
+        for (int piece=0; piece<7; piece++) 
         {
             pieceArray[0][piece] = new ulong[64];
             pieceArray[1][piece] = new ulong[64];
@@ -53,18 +53,32 @@ public static class Zobrist
     {
         ulong zobristKey = 0;
 
-        if (board.isWhiteToMove) zobristKey ^= sideToMove;
-        zobristKey ^= castlingRights[board.currentGamestate.castlingRights];
-        zobristKey ^= enPassant[board.currentGamestate.enPassant % 8];
-
-        for (int i=0; i<64; i++)
+        try
         {
-            if (board.pieceLookup[i] != PieceType.None)
+            if (board.isWhiteToMove) 
+                zobristKey ^= sideToMove;
+
+            if (board.currentGamestate.enPassantFile < 8)
+                zobristKey ^= enPassant[board.currentGamestate.enPassantFile];
+            
+            zobristKey ^= castlingRights[board.currentGamestate.castlingRights];
+
+            for (int i=0; i<64; i++)
             {
-                ulong piece = 1ul << i;
-                if      ((board.allBitboards[0][0] & piece) != 0) zobristKey ^= pieceArray[0][(int) board.pieceLookup[i] - 1][i];
-                else if ((board.allBitboards[1][0] & piece) != 0) zobristKey ^= pieceArray[1][(int) board.pieceLookup[i] - 1][i];
+                if (board.pieceLookup[i] != 0)
+                {
+                    ulong piece = 1ul << i;
+                    if      ((board.allBitboards[0][0] & piece) != 0) 
+                        zobristKey ^= pieceArray[0][board.pieceLookup[i] - 1][i];
+
+                    else if ((board.allBitboards[1][0] & piece) != 0) 
+                        zobristKey ^= pieceArray[1][board.pieceLookup[i] - 1][i];
+                }
             }
+        }
+        catch
+        {
+            Console.WriteLine("ERROR INITIALIZING ZOBRIST KEYS!");
         }
 
         return zobristKey;
@@ -77,6 +91,4 @@ public static class Zobrist
         rng.NextBytes(buffer);
         return BitConverter.ToUInt64(buffer, 0);
     }
-
 }
-
